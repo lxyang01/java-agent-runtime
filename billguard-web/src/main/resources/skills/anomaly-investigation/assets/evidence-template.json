@@ -1,0 +1,12 @@
+{
+  "claim": "",
+  "anomaly_dimension": "spike_or_duplicate_or_price_hike_or_outlier",
+  "source_tool": "",
+  "query_scope": {},
+  "current_value": null,
+  "baseline_value": null,
+  "amounts_cny": [],
+  "sample_tx_ids": [],
+  "confidence": "low_medium_or_high",
+  "limitations": []
+}

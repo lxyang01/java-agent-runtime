@@ -1,9 +1,12 @@
 spring:
   application:
     name: billguard-web
-  # M1 骨架阶段不连库;Task 16 装配真实 PG/Redis 时移除以下排除项
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  datasource:
+    url: ${BILLGUARD_PG_URL:jdbc:postgresql://localhost:5432/billguard}
+    username: ${BILLGUARD_PG_USER:billguard}
+    password: ${BILLGUARD_PG_PASSWORD:billguard}
+  flyway:
+    enabled: true
+  data:
+    redis:
+      url: ${BILLGUARD_REDIS_URL:redis://localhost:6379/0}

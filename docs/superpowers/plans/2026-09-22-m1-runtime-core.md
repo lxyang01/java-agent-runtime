@@ -1,6 +1,6 @@
 # M1 · Runtime 内核 实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 建立 billguard-java 的 Maven 多模块骨架,完整实现 agent-runtime(引擎/策略/护栏/技能/契约/解析),billguard-web 完成 PG/Redis 最小装配,纯 JVM 单测全绿 + 一条 Testcontainers 端到端审批暂停→恢复路径。
 
@@ -34,7 +34,7 @@
 
 ### Task 0: 环境验证
 
-- [ ] **Step 0.1** 验证 JDK 21 与 Maven:
+- [x] **Step 0.1** 验证 JDK 21 与 Maven:
 
 ```bash
 java -version   # 期望 21.x
@@ -58,11 +58,11 @@ mvn -version    # 期望 3.9+
 **Interfaces:**
 - Produces: 可编译的多模块工程;`GET /api/health → {"ok":true}`
 
-- [ ] **Step 1.1** 写父 POM(modules + dependencyManagement:Boot BOM/junit-bom/assertj/testcontainers + surefire 3.5.2 pluginManagement)
-- [ ] **Step 1.2** `agent-runtime/pom.xml`:parent + 依赖 `com.fasterxml.jackson.core:jackson-databind`(版本随 Boot BOM);test:junit-jupiter、assertj-core
-- [ ] **Step 1.3** `billguard-web/pom.xml`:parent + 依赖 `agent-runtime`、`spring-boot-starter-web`、`spring-boot-starter-jdbc`、`spring-boot-starter-data-redis`、`flyway-core`、`flyway-database-postgres`、`org.postgresql:postgresql`(runtime);test:`spring-boot-starter-test`、`org.testcontainers:postgresql`、`org.testcontainers:junit-jupiter`;插件 `spring-boot-maven-plugin`
-- [ ] **Step 1.4** 应用类 + HealthController + application.yml(`spring.application.name: billguard-web`;M1 暂不连库,`spring.autoconfigure.exclude` 排除 DataSource/Redis/Flyway 自动配置,后续任务移除)
-- [ ] **Step 1.5** 写失败测试:
+- [x] **Step 1.1** 写父 POM(modules + dependencyManagement:Boot BOM/junit-bom/assertj/testcontainers + surefire 3.5.2 pluginManagement)
+- [x] **Step 1.2** `agent-runtime/pom.xml`:parent + 依赖 `com.fasterxml.jackson.core:jackson-databind`(版本随 Boot BOM);test:junit-jupiter、assertj-core
+- [x] **Step 1.3** `billguard-web/pom.xml`:parent + 依赖 `agent-runtime`、`spring-boot-starter-web`、`spring-boot-starter-jdbc`、`spring-boot-starter-data-redis`、`flyway-core`、`flyway-database-postgres`、`org.postgresql:postgresql`(runtime);test:`spring-boot-starter-test`、`org.testcontainers:postgresql`、`org.testcontainers:junit-jupiter`;插件 `spring-boot-maven-plugin`
+- [x] **Step 1.4** 应用类 + HealthController + application.yml(`spring.application.name: billguard-web`;M1 暂不连库,`spring.autoconfigure.exclude` 排除 DataSource/Redis/Flyway 自动配置,后续任务移除)
+- [x] **Step 1.5** 写失败测试:
 
 ```java
 @SpringBootTest
@@ -76,8 +76,8 @@ class HealthControllerTest {
 }
 ```
 
-- [ ] **Step 1.6** `mvn -q verify` 全绿
-- [ ] **Step 1.7** Commit:`feat(build): Maven 多模块骨架与 /api/health`
+- [x] **Step 1.6** `mvn -q verify` 全绿
+- [x] **Step 1.7** Commit:`feat(build): Maven 多模块骨架与 /api/health`
 
 ---
 
@@ -94,8 +94,8 @@ class HealthControllerTest {
 **Interfaces:**
 - Produces: `String Timestamps.nowIso()`、`String Timestamps.iso(Instant)`;`int Strings.len(String)`(code points)、`String Strings.truncate(String, int)`;`Json.MAPPER`(ObjectMapper 单例,FAIL_ON_UNKNOWN_PROPERTIES=false)、`Json.write(Object)`(非 ASCII 不转义)、`Json.writePretty(Object)`;`PgTestBase`(静态启动 PostgreSQLContainer `postgres:16-alpine`,Flyway 程序化迁移到独立测试库,提供 `JdbcTemplate` 与清表方法)
 
-- [ ] **Step 2.1** 拷贝迁移:`cp "D:/shixi/aicoding/feedback-agent-runtime/migrations/V001_init.up.sql" billguard-web/src/main/resources/db/migration/V001__init.sql`(不改内容)
-- [ ] **Step 2.2** 失败测试:
+- [x] **Step 2.1** 拷贝迁移:`cp "D:/shixi/aicoding/feedback-agent-runtime/migrations/V001_init.up.sql" billguard-web/src/main/resources/db/migration/V001__init.sql`(不改内容)
+- [x] **Step 2.2** 失败测试:
 
 ```java
 class TimestampsTest {
@@ -118,7 +118,7 @@ class StringsTest {
 }
 ```
 
-- [ ] **Step 2.3** 跑红 → 实现:
+- [x] **Step 2.3** 跑红 → 实现:
 
 ```java
 public final class Timestamps {
@@ -145,7 +145,7 @@ public final class Strings {
 
 `Json`:`MAPPER = JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()`;`write` = `MAPPER.writeValueAsString`(UTF-8 天然非转义);`writePretty` 用默认 pretty printer。
 
-- [ ] **Step 2.4** `PgTestBase`:
+- [x] **Step 2.4** `PgTestBase`:
 
 ```java
 @Testcontainers
@@ -174,7 +174,7 @@ public abstract class PgTestBase {
 }
 ```
 
-- [ ] **Step 2.5** 跑绿(`mvn -q -pl agent-runtime test`;PgTestBase 由后续任务使用)→ Commit:`feat(runtime): 时间戳/长度工具(对齐 Python 语义)+ V001 迁移与 PG 测试基座`
+- [x] **Step 2.5** 跑绿(`mvn -q -pl agent-runtime test`;PgTestBase 由后续任务使用)→ Commit:`feat(runtime): 时间戳/长度工具(对齐 Python 语义)+ V001 迁移与 PG 测试基座`
 
 ---
 
@@ -193,9 +193,9 @@ public abstract class PgTestBase {
 - `record RunEvent(String eventType, String traceId, String sessionId, int step, Map<String,Object> data, String timestamp)` + 工厂 `RunEvent.of(String eventType, String traceId, String sessionId, int step, Map<String,Object> data)`(timestamp=nowIso)
 - `final class RunEvents` 常量:Global Constraints 清单中 23 个事件名(如 `RUN_START="run_start"`)
 
-- [ ] **Step 3.1** 失败测试:ChatMessage asMap 形状(role 小写、name/tool_call_id 缺省省略)、Jackson 序列化/反序列化 round-trip、Conversation addMessage/不可变视图抛 UnsupportedOperationException、replaceMessages 后原实例不受影响
-- [ ] **Step 3.2** 跑红 → 实现 → 跑绿
-- [ ] **Step 3.3** Commit:`feat(runtime): 会话与事件核心类型`
+- [x] **Step 3.1** 失败测试:ChatMessage asMap 形状(role 小写、name/tool_call_id 缺省省略)、Jackson 序列化/反序列化 round-trip、Conversation addMessage/不可变视图抛 UnsupportedOperationException、replaceMessages 后原实例不受影响
+- [x] **Step 3.2** 跑红 → 实现 → 跑绿
+- [x] **Step 3.3** Commit:`feat(runtime): 会话与事件核心类型`
 
 ---
 
@@ -208,7 +208,7 @@ public abstract class PgTestBase {
 **Interfaces:**
 - Produces:`sealed interface AgentDecision permits ToolCallDecision, FinalDecision`;`record ToolCallDecision(String thought, String tool, Map<String,Object> arguments)`;`record FinalDecision(String thought, String answer)`;`static AgentDecision DecisionParser.parse(String text)`(失败抛 `DecisionParseException("LLM output must contain exactly one valid tool_call or final answer")`)
 
-- [ ] **Step 4.1** 失败测试(逐分支对齐 PY `parser.py`):
+- [x] **Step 4.1** 失败测试(逐分支对齐 PY `parser.py`):
 
 ```java
 class DecisionParserTest {
@@ -235,9 +235,9 @@ class DecisionParserTest {
 }
 ```
 
-- [ ] **Step 4.2** 跑红 → 实现(要点:候选序列 = [围栏组1, strip 后全文];宽松解析用 `JsonFactory.createParser` + `parser.nextToken()` + `MAPPER.readTree(parser)` 忽略尾部,对齐 `raw_decode`;协议键集合 `thought/tool_call/tool_calls/final/answer`;空数组或首元素非对象 → 下一候选)
+- [x] **Step 4.2** 跑红 → 实现(要点:候选序列 = [围栏组1, strip 后全文];宽松解析用 `JsonFactory.createParser` + `parser.nextToken()` + `MAPPER.readTree(parser)` 忽略尾部,对齐 `raw_decode`;协议键集合 `thought/tool_call/tool_calls/final/answer`;空数组或首元素非对象 → 下一候选)
 
-- [ ] **Step 4.3** 跑绿 → Commit:`feat(runtime): 模型决策解析器(宽松 JSON + 协议分支)`
+- [x] **Step 4.3** 跑绿 → Commit:`feat(runtime): 模型决策解析器(宽松 JSON + 协议分支)`
 
 ---
 
@@ -250,7 +250,7 @@ class DecisionParserTest {
 **Interfaces:**
 - Produces:`Guardrails.validateUserInput(String)`/`validateModelOutput(String)`(超限抛 `GuardrailException`,限值 32_000/64_000 code points,消息 `user input exceeds the 32,000 character limit` 样式);`Redaction redactPii(String)`(`record Redaction(String text, Map<String,Integer> counts)`);`List<Double> unsupportedNumericClaims(String answer, List<Object> evidenceValues)`
 
-- [ ] **Step 5.1** 失败测试:
+- [x] **Step 5.1** 失败测试:
 
 ```java
 class GuardrailsTest {
@@ -279,8 +279,8 @@ class GuardrailsTest {
 }
 ```
 
-- [ ] **Step 5.2** 跑红 → 实现要点:PII 三模式(手机号 `(?<!\d)1[3-9]\d{9}(?!\d)`、email、订单号 `\b(?:ORD|ORDER|NO)[-_]?[A-Za-z0-9-]{5,}\b` + CASE_INSENSITIVE + **UNICODE_CHARACTER_CLASS**);`_NUMBER = (?<![A-Za-z0-9_])[-+]?\d+(?:\.\d+)?`;证据序列化非字符串对象先 `Json.write`;两条规整正则(列表编号 `(?m)^\s*\d+[.)、]\s*` 删除;样本标签 → `$1：`);round 用 `BigDecimal.setScale(6, RoundingMode.HALF_EVEN)`
-- [ ] **Step 5.3** 跑绿 → Commit:`feat(runtime): 输入输出护栏(PII 脱敏与数字 grounding)`
+- [x] **Step 5.2** 跑红 → 实现要点:PII 三模式(手机号 `(?<!\d)1[3-9]\d{9}(?!\d)`、email、订单号 `\b(?:ORD|ORDER|NO)[-_]?[A-Za-z0-9-]{5,}\b` + CASE_INSENSITIVE + **UNICODE_CHARACTER_CLASS**);`_NUMBER = (?<![A-Za-z0-9_])[-+]?\d+(?:\.\d+)?`;证据序列化非字符串对象先 `Json.write`;两条规整正则(列表编号 `(?m)^\s*\d+[.)、]\s*` 删除;样本标签 → `$1：`);round 用 `BigDecimal.setScale(6, RoundingMode.HALF_EVEN)`
+- [x] **Step 5.3** 跑绿 → Commit:`feat(runtime): 输入输出护栏(PII 脱敏与数字 grounding)`
 
 ---
 
@@ -298,9 +298,9 @@ class GuardrailsTest {
 - `record ToolDefinition(String name, String description, Map<String,Object> parameters, ToolPolicy policy, ToolHandler handler, Function<Object,String> resultFormatter)`;`Map<String,Object> schema()` = {name, description, parameters}(**不含 policy — 模型可见面契约**);静态工厂省略 policy/formatter 默认
 - `ToolRegistry`:`register`(重名 `IllegalArgumentException("tool already registered: " + name)`)、`names()`、`get(String)`(未知抛 `ToolException("unknown tool: " + name)`)、`List<Map<String,Object>> schemas(Collection<String> allowed)`、`Object execute(String name, Map<String,Object> args, Collection<String> allowed)`(不在 allowed → `ToolException("tool is not enabled for this agent: " + name)`;校验后执行;业务异常包装为 `ToolException(name + " failed: " + msg)`)、`String formatResult(String name, Object result)`
 
-- [ ] **Step 6.1** 失败测试:enforce 三分支 + FORBIDDEN 强制审批 + 异常消息;注册表重名/未知/未启用;schema 校验矩阵(required 缺失、additionalProperties=false 多余参数、string/number/integer/boolean/array/object 类型不符、**boolean 不算 number/integer**、`5.0` 不算 integer、enum、minimum);`schemas()` 不含 policy 键
-- [ ] **Step 6.2** 跑红 → 实现(校验对齐 PY `tools._validate`:integer 接受 Byte/Short/Integer/Long/BigInteger,number 接受一切 Number;Boolean 天然被拒)
-- [ ] **Step 6.3** 跑绿 → Commit:`feat(runtime): 策略门禁与工具注册表(schema 校验)`
+- [x] **Step 6.1** 失败测试:enforce 三分支 + FORBIDDEN 强制审批 + 异常消息;注册表重名/未知/未启用;schema 校验矩阵(required 缺失、additionalProperties=false 多余参数、string/number/integer/boolean/array/object 类型不符、**boolean 不算 number/integer**、`5.0` 不算 integer、enum、minimum);`schemas()` 不含 policy 键
+- [x] **Step 6.2** 跑红 → 实现(校验对齐 PY `tools._validate`:integer 接受 Byte/Short/Integer/Long/BigInteger,number 接受一切 Number;Boolean 天然被拒)
+- [x] **Step 6.3** 跑绿 → Commit:`feat(runtime): 策略门禁与工具注册表(schema 校验)`
 
 ---
 
@@ -316,8 +316,8 @@ class GuardrailsTest {
 - `SkillRuntime`:`ctor(SkillSource, int maxActive=2, int maxSkillBytes=256_000)`、`ctor(Path root)`、`refresh()`、`List<SkillActivation> activate(String userInput)`、`static List<String> allowedTools(List<SkillActivation>, List<String> fallback)`
 - `SkillActivation(name, description, instructions, version, reason, score, allowedTools, requiredTools, requiredToolGroups, requiredToolPlan, outputContract)` — 全 List/Map 不可变
 
-- [ ] **Step 7.1** 拷贝资产:`cp -r "D:/shixi/aicoding/feedback-agent-runtime/skills/"* agent-runtime/src/test/resources/skills/`
-- [ ] **Step 7.2** 失败测试(用真实 4 技能资产,`Path.of(getClass().getResource("/skills").toURI())`):
+- [x] **Step 7.1** 拷贝资产:`cp -r "D:/shixi/aicoding/feedback-agent-runtime/skills/"* agent-runtime/src/test/resources/skills/`
+- [x] **Step 7.2** 失败测试(用真实 4 技能资产,`Path.of(getClass().getResource("/skills").toURI())`):
 
 ```java
 class SkillRuntimeTest {
@@ -343,8 +343,8 @@ class SkillRuntimeTest {
 }
 ```
 
-- [ ] **Step 7.3** 跑红 → 实现要点(对齐 PY `skills.py`):名称 `^[a-z0-9]+(?:-[a-z0-9]+)*$` ≤64;目录名==name;description ≤1024;显式引用 `\$(name)`=10000 分 `explicit:$name`;触发词得分 `100+priority+max(触发词长)`(长度按 code points;数组触发词=共现全词命中,长度=词长和,reason `a+b`);无命中回落 default(1,"default");frontmatter 标量解析(首行 `---`,遇 `---` 止,跳空行/#,含 `:` 才合法,成对引号剥除);body ≤500 行、≤8000 chars、≤maxSkillBytes;version=sha256(raw)[0:12] hex;激活时匹配 completion 规则(trigger 对 lowered input)生成 requiredTools/groups/plan(保序去重);大小写折叠 `toLowerCase(Locale.ROOT)`(routes.json 词表为中文/ASCII,与 casefold 等价 — 注释说明)
-- [ ] **Step 7.4** 跑绿 → Commit:`feat(runtime): 技能路由(SKILL.md 发现/触发词评分/完成契约)`
+- [x] **Step 7.3** 跑红 → 实现要点(对齐 PY `skills.py`):名称 `^[a-z0-9]+(?:-[a-z0-9]+)*$` ≤64;目录名==name;description ≤1024;显式引用 `\$(name)`=10000 分 `explicit:$name`;触发词得分 `100+priority+max(触发词长)`(长度按 code points;数组触发词=共现全词命中,长度=词长和,reason `a+b`);无命中回落 default(1,"default");frontmatter 标量解析(首行 `---`,遇 `---` 止,跳空行/#,含 `:` 才合法,成对引号剥除);body ≤500 行、≤8000 chars、≤maxSkillBytes;version=sha256(raw)[0:12] hex;激活时匹配 completion 规则(trigger 对 lowered input)生成 requiredTools/groups/plan(保序去重);大小写折叠 `toLowerCase(Locale.ROOT)`(routes.json 词表为中文/ASCII,与 casefold 等价 — 注释说明)
+- [x] **Step 7.4** 跑绿 → Commit:`feat(runtime): 技能路由(SKILL.md 发现/触发词评分/完成契约)`
 
 ---
 
@@ -358,7 +358,7 @@ class SkillRuntimeTest {
 - `RequestContract(List<ArgumentConstraint>, List<OutputSection>)` + `List<String> toolViolations(String toolName, Map<String,Object> arguments, Map<String,Object> schema)` + `List<String> missingSections(String answer)` + `String promptText()`
 - `RequestContracts.compile(String userInput, List<SkillActivation> activeSkills)` + `static toolRole(String toolName)` + `outputSectionsMissing(String, List<String>)`
 
-- [ ] **Step 8.1** 失败测试(正则与消息逐字):
+- [x] **Step 8.1** 失败测试(正则与消息逐字):
 
 ```java
 class RequestContractsTest {
@@ -385,8 +385,8 @@ class RequestContractsTest {
 }
 ```
 
-- [ ] **Step 8.2** 跑红 → 实现(正则逐字:`最多\s*(?:返回|读取|给出)?\s*(\d+)\s*条([^，。；,;]{0,10})`、`(?:返回|给出|列出)?\s*前\s*(\d+)\s*项`;前缀窗口 `max(0,start-24)`;tail 含"样本"或 prefix 末 8 字符含"样本"→samples,prefix 含 搜索/检索/查找→query,否则 query;章节目录 10 项标签逐字拷贝;`_has_section` Markdown 行首模式 `(?im)^\s*(?:#{1,6}\s*|[-*]\s*|\*\*)?label(?:\*\*)?\s*(?::|：|$)`,JSON 键 `toLowerCase(Locale.ROOT)`)
-- [ ] **Step 8.3** 跑绿 → Commit:`feat(runtime): 用户原话动态契约(limit 约束/章节门禁)`
+- [x] **Step 8.2** 跑红 → 实现(正则逐字:`最多\s*(?:返回|读取|给出)?\s*(\d+)\s*条([^，。；,;]{0,10})`、`(?:返回|给出|列出)?\s*前\s*(\d+)\s*项`;前缀窗口 `max(0,start-24)`;tail 含"样本"或 prefix 末 8 字符含"样本"→samples,prefix 含 搜索/检索/查找→query,否则 query;章节目录 10 项标签逐字拷贝;`_has_section` Markdown 行首模式 `(?im)^\s*(?:#{1,6}\s*|[-*]\s*|\*\*)?label(?:\*\*)?\s*(?::|：|$)`,JSON 键 `toLowerCase(Locale.ROOT)`)
+- [x] **Step 8.3** 跑绿 → Commit:`feat(runtime): 用户原话动态契约(limit 约束/章节门禁)`
 
 ---
 
@@ -400,9 +400,9 @@ class RequestContractsTest {
 - `record AgentSpec(String name, String instructions, List<String> toolNames, int maxSteps, Duration runTimeout, int summaryThreshold, int summaryKeepRecent, int toolResultContextLimit, int maxContextChars)` — Builder 提供默认值(maxSteps=8, runTimeout=null, 40/12/1500/80_000);compact ctor 校验消息逐字
 - `List<ChatMessage> ContextBuilder.build(AgentSpec, String summary, List<ChatMessage> messages, List<SkillActivation>, RequestContract)`
 
-- [ ] **Step 9.1** 失败测试:PROTOCOL 头消息(`你是 {name}。\n{instructions}\n\n{PROTOCOL}`);技能块(`## {name}（版本 {version}）` + 不可信声明前言逐字);required tools 消息;契约消息;`较早会话摘要：\n{summary}`;预算兜底(超预算时从旧到新丢弃,最新一条永远保留,`maxContextChars=0` 不限)
-- [ ] **Step 9.2** 跑红 → 实现(中文文案从 PY `context.py` 逐字拷贝;长度用 `Strings.len`)
-- [ ] **Step 9.3** 跑绿 → Commit:`feat(runtime): 上下文构建器(协议/技能块/字符预算)`
+- [x] **Step 9.1** 失败测试:PROTOCOL 头消息(`你是 {name}。\n{instructions}\n\n{PROTOCOL}`);技能块(`## {name}（版本 {version}）` + 不可信声明前言逐字);required tools 消息;契约消息;`较早会话摘要：\n{summary}`;预算兜底(超预算时从旧到新丢弃,最新一条永远保留,`maxContextChars=0` 不限)
+- [x] **Step 9.2** 跑红 → 实现(中文文案从 PY `context.py` 逐字拷贝;长度用 `Strings.len`)
+- [x] **Step 9.3** 跑绿 → Commit:`feat(runtime): 上下文构建器(协议/技能块/字符预算)`
 
 ---
 
@@ -422,9 +422,9 @@ class RequestContractsTest {
 - `interface LlmClient { LlmResult complete(LlmRequest request); }`;`record LlmRequest(List<ChatMessage> messages, List<Map<String,Object>> toolSchemas)`;`record LlmResult(String raw, Map<String,Object> usage, String model)`
 - 替身:`ScriptedLlm(Object... script)`(String 原样 / Map→`Json.write`;每次 complete 弹出;耗尽抛 `AssertionError("script exhausted")`;usage=`Map.of()` model=`"scripted"`)、`FinalLlm(String answer)`;`InMemoryApprovalStore`(decide 双状态检查 + 已决拒绝)、`InMemoryTraceWriter`(`List<Map> records()` / `records(String sessionId, String traceId)`)
 
-- [ ] **Step 10.1** 失败测试:decide 状态机(pending→approved/rejected→executed/failed;非 pending 二次 decide 抛异常消息);markExecution 仅 approved 可执行;asMap 字段名与 includeCheckpoint 行为;ScriptedLlm 弹尽即 AssertionError、Map 自动序列化
-- [ ] **Step 10.2** 跑红 → 实现 → 跑绿
-- [ ] **Step 10.3** Commit:`feat(runtime): 存储端口、LLM 边界与确定性替身`
+- [x] **Step 10.1** 失败测试:decide 状态机(pending→approved/rejected→executed/failed;非 pending 二次 decide 抛异常消息);markExecution 仅 approved 可执行;asMap 字段名与 includeCheckpoint 行为;ScriptedLlm 弹尽即 AssertionError、Map 自动序列化
+- [x] **Step 10.2** 跑红 → 实现 → 跑绿
+- [x] **Step 10.3** Commit:`feat(runtime): 存储端口、LLM 边界与确定性替身`
 
 ---
 
@@ -438,7 +438,7 @@ class RequestContractsTest {
 - `AgentRuntime.Builder(spec, llm, tools, conversations, traceWriter)` 可选 `skills/policyApprovalStore(启用审批)/hooks/contextBuilder`;`build()` 时校验 `AgentSpec references unregistered tools: ...`(排序逗号连接)
 - `AgentResponse run(String sessionId, String userInput)` / `resume(String approvalId)` / `finalizeRejection(String approvalId)`
 
-- [ ] **Step 11.1** 失败测试:
+- [x] **Step 11.1** 失败测试:
 
 ```java
 class AgentRuntimeTest {
@@ -464,14 +464,14 @@ class AgentRuntimeTest {
 }
 ```
 
-- [ ] **Step 11.2** 跑红 → 实现要点(对齐 PY `engine.py` 逐段):
+- [x] **Step 11.2** 跑红 → 实现要点(对齐 PY `engine.py` 逐段):
   - `run`:strip→空抛 IllegalArgumentException;`validateUserInput`;load;`summaryThreshold>0 && messages.size()>threshold` → `compressHistory` + save + `history_compressed`(probe traceId);append user;traceId=hex32;`run_start(input, agent)`;activate(SkillException → answer=`Skill 路由或加载失败：{msg}` status=failed steps=0);contract;build;`loop(...)`
   - `loop`:`for step in startStep..maxSteps`;超时检查(`System.nanoTime()`,文案 `已达到最大执行时间（{g} 秒），任务被 Harness 安全停止。`,`gFormat` 去尾零);model_start → llm.complete → `validateModelOutput`(违例先 emit `model_output_blocked(reason=length_limit)` 再抛)→ `model_output`(raw 截 20_000/latency_ms/usage/model)→ parse → `model_decision`(thought/tool/final 布尔);**任何异常** → `run_error` + failed(答案 `Agent 执行模型步骤失败:{exc}`)
   - final 三连:missingRequiredTools(游标序匹配,对齐 `_missing_required_tools`)→ `completion_blocked` + system 消息(逐字);missingSections → `output_contract_blocked`;redact → `output_redacted`;grounding 证据 = fullPayloads + working 中 assistant&&toolCallId!=null 的 content → `grounding_blocked` + 消息;全过 → decorate → finish(再次 redact + append assistant + save + `run_end(answer,status)`)
   - tool 分支:callId=hex12;未知工具 → 工具错误消息对(见下)continue;`toolViolations`(取 schema.parameters)非空 → `argument_blocked` + system 消息;`PolicyGateway.enforce`(PolicyException → 工具错误对 continue;ApprovalRequired → pause,Task 12);执行:`tool_start` → registry.execute → payload=`Json.write`(非 ASCII 直出)→ summary/formatResult → storage_path 记 artifact → `tool_end(result, latency)`;**degraded 判定**:result 是 Map 且 `degraded==true` 且含 `error` 且 riskLevel==HIGH_WRITE → `tool_error` + 记失败(executed=False);否则成功 + fullPayloads.add;ToolException → payload={"error":msg} + `tool_error`;工具消息对 = assistant(`{"tool_call":{"name":..,"arguments":..}}` compact,name=tool,callId)+ tool(payload 经 `contextualPayload` 截断);working 与 conversation 同时追加
   - 循环耗尽:`max_steps` 事件 + failed(文案 `已达到最大执行步数（{N}），任务被 Harness 安全停止。`)
   - `emit(type, traceId, sessionId, step, kv...)` → `RunEvent.of`;hooks 逐个 try-catch 吞没(**Observability must never break the Agent loop** 注释保留);末位 hook = trace:`{timestamp, event, trace_id, step, agent, **data}` → traceWriter.appendEvent
-- [ ] **Step 11.3** 跑绿 → Commit:`feat(runtime): 引擎核心循环与 final 三连门禁`
+- [x] **Step 11.3** 跑绿 → Commit:`feat(runtime): 引擎核心循环与 final 三连门禁`
 
 ---
 
@@ -481,7 +481,7 @@ class AgentRuntimeTest {
 - Modify: `agent-runtime/.../engine/AgentRuntime.java`(补 pause/resume/finalizeRejection)
 - Test: `.../engine/AgentApprovalFlowTest.java`
 
-- [ ] **Step 12.1** 失败测试:
+- [x] **Step 12.1** 失败测试:
 
 ```java
 class AgentApprovalFlowTest {
@@ -514,8 +514,8 @@ class AgentApprovalFlowTest {
 }
 ```
 
-- [ ] **Step 12.2** 跑红 → 实现(对齐 PY:pause 文案 `操作 \`{tool}\` 需要人工审批，Agent 已保存 Checkpoint 并暂停。\n审批通过后会从当前步骤继续，不会重复前面的查询。`;resume 六重校验顺序:schema_version==2 → session 匹配 → activate(不发事件) → skill_versions 全等 → allowed_tools 全等(有序)→ 工具仍在 allowed;`run_resume` 事件(approval_id/decided_by);executeTool(step=approval.step)→ markExecution → 成功才补 completed_tools → loop(step+1, 恢复 fullPayloads);finalizeRejection 文案见测试)
-- [ ] **Step 12.3** 跑绿 → Commit:`feat(runtime): 三阶段审批暂停/恢复/诚实拒绝`
+- [x] **Step 12.2** 跑红 → 实现(对齐 PY:pause 文案 `操作 \`{tool}\` 需要人工审批，Agent 已保存 Checkpoint 并暂停。\n审批通过后会从当前步骤继续，不会重复前面的查询。`;resume 六重校验顺序:schema_version==2 → session 匹配 → activate(不发事件) → skill_versions 全等 → allowed_tools 全等(有序)→ 工具仍在 allowed;`run_resume` 事件(approval_id/decided_by);executeTool(step=approval.step)→ markExecution → 成功才补 completed_tools → loop(step+1, 恢复 fullPayloads);finalizeRejection 文案见测试)
+- [x] **Step 12.3** 跑绿 → Commit:`feat(runtime): 三阶段审批暂停/恢复/诚实拒绝`
 
 ---
 
@@ -525,14 +525,14 @@ class AgentApprovalFlowTest {
 - Modify: `agent-runtime/.../engine/AgentRuntime.java`(补 compressHistory/gFormat)
 - Test: `.../engine/AgentCompressTest.java`、`AgentEventSequenceTest.java`
 
-- [ ] **Step 13.1** 失败测试:
+- [x] **Step 13.1** 失败测试:
   - `compress_history_summarizes_qa_pairs`:>keep_recent 旧消息折叠为 `- 问:.. 答:..`(问题截 120、答截 200,`{final:...}` JSON 解包);连续未答问题留痕 `(该轮无最终回答)`;已有 summary 的 `- 问:` 行保留并拼接,尾部 maxPairs=20;**返回新对象,入参不变**
   - `compression_triggered_at_threshold`:threshold=4,预置 6 条 → run 时事件 `history_compressed` 携带 before/after
   - `run_timeout_aborts`:runTimeout=50ms + ScriptedLlm 每次 complete 睡 80ms、剧本两条 → failed,answer 含 `已达到最大执行时间`
   - `event_sequence_for_full_run`:InMemoryTraceWriter 断言序列 `run_start → (skill_activated) → model_start → model_output → model_decision → tool_start → tool_end → model_start → model_output → model_decision → run_end`
   - `resume_requires_gateway`:无审批仓储构造的 runtime.resume → PolicyException("this Agent has no Policy Gateway")
-- [ ] **Step 13.2** 跑红 → 实现 → 跑绿
-- [ ] **Step 13.3** Commit:`feat(runtime): 历史压缩、超时止损与事件序列`
+- [x] **Step 13.2** 跑红 → 实现 → 跑绿
+- [x] **Step 13.3** Commit:`feat(runtime): 历史压缩、超时止损与事件序列`
 
 ---
 
@@ -544,7 +544,7 @@ class AgentApprovalFlowTest {
 
 **Interfaces:** 与 runtime 端口同名同签名(PgConversationStore/PgApprovalStore 实现 ApprovalStore、PgTraceWriter 实现 TraceWriter;构造注入 `JdbcTemplate`)
 
-- [ ] **Step 14.1** 失败测试(继承 PgTestBase):
+- [x] **Step 14.1** 失败测试(继承 PgTestBase):
 
 ```java
 class PgStoresTest extends PgTestBase {
@@ -568,12 +568,12 @@ class PgStoresTest extends PgTestBase {
 }
 ```
 
-- [ ] **Step 14.2** 跑红 → 实现要点:
+- [x] **Step 14.2** 跑红 → 实现要点:
   - SQL 逐字对齐 PY `storage_pg.py`(占位符 `%s`→`?`):`PgConversationStore.save` = `INSERT INTO sessions(session_id, owner, summary, messages, updated_at) VALUES (?,?,?,?,?) ON CONFLICT (session_id) DO UPDATE SET owner=EXCLUDED.owner, summary=EXCLUDED.summary, messages=EXCLUDED.messages, updated_at=EXCLUDED.updated_at`;messages 列 Jackson ↔ `List<ChatMessage>`
   - `PgApprovalStore.decide`:先 `SELECT status`(非 pending 抛 `approval is already {status}`)→ 条件 `UPDATE ... WHERE id=? AND status='pending'`,**updateCount==0 即抛 `approval is already decided`** —— 不得"优化"为先查后写(并发窗口正是条件 UPDATE 关掉的,风险清单 §12)
   - `PgTraceWriter.appendEvent`:`TransactionTemplate` 内 `SELECT events ... FOR UPDATE` → append → upsert(对齐 PY 读-改-写)
   - `PgJson.value(Object/JsonNode)` → `PGobject(type="jsonb")`
-- [ ] **Step 14.3** 跑绿 → Commit:`feat(web): PG 会话/审批/追踪仓储(条件 UPDATE 恰好一次)`
+- [x] **Step 14.3** 跑绿 → Commit:`feat(web): PG 会话/审批/追踪仓储(条件 UPDATE 恰好一次)`
 
 ---
 
@@ -587,7 +587,7 @@ class PgStoresTest extends PgTestBase {
 - `RedisSessionLock(RedisCommands<String,String> commands, String sessionId, Duration ttl)`:`boolean acquire()`(SET NX PX,键 `lock:session:{sha256hex(sessionId)}`,value=随机 holder hex32)、`void release()`(Lua 持有者校验)、`static Optional<RedisSessionLock> acquire(commands, sessionId, ttl)`
 - `RedisLlmLimiter(commands, int limit, String key="llm:slots")`:`boolean acquire()`(INCR Lua check-and-incr + EXPIRE 120s)、`void release()`(带地板 DECR Lua)
 
-- [ ] **Step 15.1** 失败测试(继承 PgTestBase 取 redisUri(),Lettuce `RedisClient.create(uri).connect()`):
+- [x] **Step 15.1** 失败测试(继承 PgTestBase 取 redisUri(),Lettuce `RedisClient.create(uri).connect()`):
 
 ```java
 class RedisCoordinationTest extends PgTestBase {
@@ -599,8 +599,8 @@ class RedisCoordinationTest extends PgTestBase {
 }
 ```
 
-- [ ] **Step 15.2** 跑红 → 实现(Lua 脚本与键名逐字拷贝 PY `coordination.py`;sha256 用 `MessageDigest.getInstance("SHA-256")` hex 小写)
-- [ ] **Step 15.3** 跑绿 → Commit:`feat(web): Redis 会话锁与 LLM 槽位限流(Lua 原子)`
+- [x] **Step 15.2** 跑红 → 实现(Lua 脚本与键名逐字拷贝 PY `coordination.py`;sha256 用 `MessageDigest.getInstance("SHA-256")` hex 小写)
+- [x] **Step 15.3** 跑绿 → Commit:`feat(web): Redis 会话锁与 LLM 槽位限流(Lua 原子)`
 
 ---
 
@@ -612,7 +612,7 @@ class RedisCoordinationTest extends PgTestBase {
 - Create: `billguard-web/src/main/resources/skills/` ← 资产拷贝(供后续里程碑,M1 打包完整)
 - Test: `billguard-web/src/test/java/io/github/lxyang01/billguard/M1EndToEndTest.java`
 
-- [ ] **Step 16.1** 失败测试(@SpringBootTest + @ServiceConnection PostgreSQLContainer + Redis GenericContainer @DynamicPropertySource;`@Testcontainers(disabledWithoutDocker = true)`):
+- [x] **Step 16.1** 失败测试(@SpringBootTest + @ServiceConnection PostgreSQLContainer + Redis GenericContainer @DynamicPropertySource;`@Testcontainers(disabledWithoutDocker = true)`):
 
 ```java
 class M1EndToEndTest {
@@ -635,8 +635,8 @@ class M1EndToEndTest {
 }
 ```
 
-- [ ] **Step 16.2** 跑红 → 装配实现 + 移除排除项;`mvn -q verify` 全模块绿
-- [ ] **Step 16.3** Commit:`feat(web): M1 装配与端到端审批恢复路径(真实 PG/Redis)`
+- [x] **Step 16.2** 跑红 → 装配实现 + 移除排除项;`mvn -q verify` 全模块绿
+- [x] **Step 16.3** Commit:`feat(web): M1 装配与端到端审批恢复路径(真实 PG/Redis)`
 
 ---
 
