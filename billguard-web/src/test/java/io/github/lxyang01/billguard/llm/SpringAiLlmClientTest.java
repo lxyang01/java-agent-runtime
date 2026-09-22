@@ -41,7 +41,9 @@ class SpringAiLlmClientTest {
         var request = new LlmRequest(List.of(
             ChatMessage.system("你是守卫。"),
             ChatMessage.user("查一下"),
-            ChatMessage.assistant("{\"tool_call\":{}}", null, "c1"),
+            new io.github.lxyang01.agent.types.ChatMessage(
+                io.github.lxyang01.agent.types.ChatRole.ASSISTANT, "{\"tool_call\":{}}",
+                null, "c1"),
             ChatMessage.tool("bill.query", "{\"count\":3}", "c1")),
             List.of(Map.of("name", "bill.query", "description", "查询",
                 "parameters", Map.of())));
@@ -50,16 +52,19 @@ class SpringAiLlmClientTest {
         assertThat(result.raw()).isEqualTo("{\"final\":\"好\"}");
         assertThat(result.model()).isEqualTo("gpt-4.1-mini");
 
-        assertThat(model.lastPrompt).hasSize(4);
+        assertThat(model.lastPrompt).hasSize(5);
+        // assistant 角色保留(Python wire 仅改写 tool)
+        assertThat(model.lastPrompt.get(3))
+            .isInstanceOf(org.springframework.ai.chat.messages.AssistantMessage.class);
         assertThat(model.lastPrompt.get(0).getText()).isEqualTo("你是守卫。");
         // schema system 紧跟首条 system
         assertThat(model.lastPrompt.get(1).getText())
             .startsWith("可用工具 JSON Schema：").contains("bill.query");
         // tool 消息改写为 user,带工具名前缀
-        assertThat(model.lastPrompt.get(3).getText())
+        assertThat(model.lastPrompt.get(4).getText())
             .startsWith("[工具 bill.query 的执行结果]\n{\"count\":3}");
         // response_format = json_object
-        assertThat(model.lastOptions.getResponseFormat().type())
+        assertThat(model.lastOptions.getResponseFormat().getType())
             .isEqualTo(org.springframework.ai.openai.api.ResponseFormat.Type.JSON_OBJECT);
         assertThat(model.lastOptions.getModel()).isEqualTo("gpt-4.1-mini");
     }

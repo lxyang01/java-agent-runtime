@@ -58,7 +58,10 @@ public final class SpringAiLlmClient implements LlmClient {
                 continue;
             }
             wire.add(message.role() == ChatRole.SYSTEM
-                ? new SystemMessage(message.content()) : new UserMessage(message.content()));
+                ? new SystemMessage(message.content())
+                : message.role() == ChatRole.ASSISTANT
+                    ? new org.springframework.ai.chat.messages.AssistantMessage(message.content())
+                    : new UserMessage(message.content()));
         }
 
         OpenAiChatOptions.Builder options = OpenAiChatOptions.builder()
