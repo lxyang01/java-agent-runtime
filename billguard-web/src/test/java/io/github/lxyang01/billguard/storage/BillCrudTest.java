@@ -68,12 +68,12 @@ class BillCrudTest extends PgTestBase {
         bills.saveCategory("打车", List.of("滴滴"), true, null, "alice", "alice");
         var result = bills.rematchCategories("alice", "alice");
         assertThat(result.get("transactions")).isEqualTo(2);
-        // T-1 美团→餐饮、T-2 滴滴→打车,两笔都被重匹配
+        // T-1 美团→餐饮、T-2 滴滴→交通(默认类先命中),两笔都被重匹配
         assertThat(result.get("changed")).isEqualTo(2);
         Map<String, Object> t2 = ((List<Map<String, Object>>) (List<?>)
             bills.query(BillFilters.EMPTY, 1, 10, "alice").get("items")).stream()
             .filter(i -> "T-2".equals(i.get("tx_id"))).findFirst().orElseThrow();
-        assertThat(t2.get("category")).isEqualTo("打车");
+        assertThat(t2.get("category")).isEqualTo("交通");   // 默认交通类含关键词"滴滴"
     }
 
     @Test
