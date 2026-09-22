@@ -7,7 +7,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
@@ -18,7 +18,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class PgTestBase {
 
-    static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine")
+    protected static final PostgreSQLContainer PG =
+        new PostgreSQLContainer("postgres:16-alpine")
         .withReuse(true);
 
     static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine")
@@ -26,6 +27,7 @@ public abstract class PgTestBase {
         .withReuse(true);
 
     protected static JdbcTemplate jdbc;
+    protected static DataSource dataSource;
 
     @BeforeAll
     void startInfrastructure() {
@@ -36,7 +38,7 @@ public abstract class PgTestBase {
             REDIS.start();
         }
         if (jdbc == null) {
-            DataSource dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+            dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
                 PG.getJdbcUrl(), PG.getUsername(), PG.getPassword());
             Flyway.configure()
                 .dataSource(dataSource)

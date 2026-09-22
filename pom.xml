@@ -24,11 +24,21 @@
     <spring-boot.version>3.5.7</spring-boot.version>
     <junit.version>5.12.2</junit.version>
     <assertj.version>3.27.3</assertj.version>
-    <testcontainers.version>1.21.3</testcontainers.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- testcontainers-bom 必须在 spring-boot-dependencies 之前:Boot 3.5 内置
+           TC 1.21.3 管理(旧模块名 + 旧传输层,与 Docker 28 npipe 不兼容),
+           先声明者胜,故以 2.x 覆盖之 -->
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -49,13 +59,6 @@
         <version>${assertj.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers-bom</artifactId>
-        <version>${testcontainers.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
         <groupId>io.github.lxyang01</groupId>
         <artifactId>agent-runtime</artifactId>
         <version>${project.version}</version>
@@ -73,6 +76,10 @@
           <configuration>
             <!-- Windows 下确保测试 JVM 与源码一致按 UTF-8 处理中文断言/文案 -->
             <argLine>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</argLine>
+            <environmentVariables>
+              <!-- 国内网络拉 testcontainers/ryuk 常超时;禁用死信容器,容器由 PgTestBase 自行管理 -->
+              <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
+            </environmentVariables>
           </configuration>
         </plugin>
       </plugins>
