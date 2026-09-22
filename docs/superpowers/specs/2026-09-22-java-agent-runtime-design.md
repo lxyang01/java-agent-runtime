@@ -74,46 +74,47 @@ billguard-eval        (命令行:对抗探针 + 路由评测)
 ### 5.1 三个边界接口(一切可替换性的根源)
 
 ```java
-/** 模型边界 —— 运行时对 LLM 的全部认知。生产实现 SpringAiLlmClient,测试替身 ScriptedLlm / FinalLlm。 */
+/** 模型边界 —— 运行时对 LLM 的全部认知。生产实现 SpringAiLlmClient,测试替身 ScriptedLlm / FinalLlm。
+    complete 返回值携带 usage/model(Python 版用 thread-local 传递,Java 改为值携带,多线程不串号)。 */
 public interface LlmClient {
     LlmResult complete(LlmRequest request);
 }
-public record LlmRequest(List<ChatMessage> messages, List<ToolDescriptor> tools) {}
-public record LlmResult(String raw, Usage usage) {}          // raw = 模型原文,决策解析在引擎侧
+public record LlmRequest(List<ChatMessage> messages, List<Map<String, Object>> toolSchemas) {}
+public record LlmResult(String raw, Map<String, Object> usage, String model) {}   // raw = 模型原文,决策解析在引擎侧
 
-/** 工具边界 —— 模型可调用的每个能力的契约。 */
-public interface Tool {
-    String name();                                            // "bill.aggregate" / "work-items.commit_issue"
-    ToolDescriptor descriptor();                             // JSON Schema + risk 元数据
-    ToolRisk risk();
-    ToolResult execute(ToolCall call, ExecutionContext ctx); // ctx 携带 owner,多租户隔离在此层强制
-}
-public enum ToolRisk { READ_ONLY, LOW_WRITE, HIGH_WRITE }
-public record ToolResult(Map<String, Object> payload) {}     // 数据契约:Map 直通,degraded:true 等键原样保留
-                                                              // 引擎对工具结果零假设 —— 这是 runtime 设计决策,非兼容包袱
+/** 工具边界 —— ToolDefinition(名称/描述/JSON Schema/策略/handler)注册进 ToolRegistry;
+    多租户 owner 隔离在装配期闭包绑定(与 Python 版相同:web 装配时把 owner 捕获进 handler),
+    引擎对工具结果零假设(handler 返回 Object 直通序列化,degraded:true 等键原样保留 —— runtime 设计决策,非兼容包袱)。 */
+public interface ToolHandler { Object execute(Map<String, Object> arguments) throws Exception; }
+public record ToolDefinition(String name, String description, Map<String, Object> parameters,
+                             ToolPolicy policy, ToolHandler handler,
+                             Function<Object, String> resultFormatter) {}
 
-/** 策略边界 —— 工具调用的唯一门禁。 */
-public interface PolicyGateway {
-    PolicyVerdict check(ToolCall call, ExecutionContext ctx);
+/** 策略边界 —— 工具调用的唯一门禁。静态裁决:read/low_write → Allowed;high_write 或 requiresApproval → ApprovalRequired;
+    forbidden → PolicyException(引擎捕获后作为工具错误结果回给模型,循环不中断)。 */
+public final class PolicyGateway {
+    public static PolicyVerdict enforce(ToolPolicy policy, String toolName) { ... }
 }
+public sealed interface PolicyVerdict permits Allowed, ApprovalRequired {}
 ```
 
 ### 5.2 决策协议(sealed 层次,pattern matching 消化)
 
 ```java
-/** 模型单步输出解析后的类型化结果;解析失败不是异常,是 Malformed —— 注入 system 消息重试。 */
-public sealed interface AgentDecision permits ToolCallDecision, FinalDecision, Malformed {}
-public record ToolCallDecision(String tool, JsonNode arguments) implements AgentDecision {}
-public record FinalDecision(String answer) implements AgentDecision {}
-public record Malformed(String reason, String raw) implements AgentDecision {}
+/** 模型单步输出解析后的类型化结果;解析失败抛 DecisionParseException → run_error 失败收尾(行为契约,对齐 Python 版,不重试)。 */
+public sealed interface AgentDecision permits ToolCallDecision, FinalDecision {}
+public record ToolCallDecision(String thought, String tool, Map<String, Object> arguments) implements AgentDecision {}
+public record FinalDecision(String thought, String answer) implements AgentDecision {}
 
 /** 策略裁决 */
 public sealed interface PolicyVerdict permits Allowed, Rejected, ApprovalRequired {}
 public record ApprovalRequired(String pauseReason) implements PolicyVerdict {}
 
-/** 运行事件(观测);消费方异常全部吞没 —— observability must never break the loop */
-public sealed interface RunEvent permits TurnStarted, LlmCompleted, ToolInvoked,
-    GuardrailTriggered, PausedForApproval, TurnCompleted, TurnFailed {}
+/** 运行事件:record + 事件名常量(RunEvents.*)。trace 的 wire 契约是「字符串事件名 + data map」
+    (traces 表 events JSONB 形状不变),sealed 变体只增加仪式不改变行为。
+    消费方(hooks)异常全部吞没 —— observability must never break the loop。 */
+public record RunEvent(String eventType, String traceId, String sessionId, int step,
+                       Map<String, Object> data, String timestamp) {}
 ```
 
 ### 5.3 引擎与调用链
