@@ -48,12 +48,18 @@ class EvidenceTest extends PgTestBase {
 
     @Test
     void caps_at_twelve_entries() {
-        java.util.List<Object> many = new java.util.ArrayList<>();
-        for (int i = 0; i < 20; i++) {
-            many.add(Map.of("merchant", "商户" + i, "amount", 10));
+        // 单事件样本最多取 10(Python source[:10]);两事件合计 20 → 总量截断 12
+        java.util.List<Object> first = new java.util.ArrayList<>();
+        java.util.List<Object> second = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            first.add(Map.of("merchant", "商户A" + i, "amount", 10));
+            second.add(Map.of("merchant", "商户B" + i, "amount", 10));
         }
-        var events = List.of(RunEvent.of(RunEvents.TOOL_END, "t", "s", 1,
-            Map.of("tool", "bill_search", "result", Map.of("items", many))));
+        var events = List.of(
+            RunEvent.of(RunEvents.TOOL_END, "t", "s", 1,
+                Map.of("tool", "bill_search", "result", Map.of("items", first))),
+            RunEvent.of(RunEvents.TOOL_END, "t", "s", 2,
+                Map.of("tool", "bill_samples", "result", Map.of("samples", second))));
         assertThat(EvidenceBuilder.build(events)).hasSize(12);
     }
 
