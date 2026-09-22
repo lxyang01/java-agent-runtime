@@ -29,13 +29,16 @@ public class AuthController {
     private final UserStore users;
     private final RedisLoginThrottle throttle;
     private final SessionCookies cookies;
+    private final io.github.lxyang01.billguard.metrics.AppMetrics metrics;
 
     public AuthController(Authenticator authenticator, UserStore users,
-                          RedisLoginThrottle throttle, SessionCookies cookies) {
+                          RedisLoginThrottle throttle, SessionCookies cookies,
+                          io.github.lxyang01.billguard.metrics.AppMetrics metrics) {
         this.authenticator = authenticator;
         this.users = users;
         this.throttle = throttle;
         this.cookies = cookies;
+        this.metrics = metrics;
     }
 
     /**
@@ -56,6 +59,7 @@ public class AuthController {
         }
         String ip = clientIp(request);
         if (!throttle.allowed(username, ip)) {
+            metrics.inc("login_throttle_blocks_total");
             return jsonResponse(429, Map.of("error", "登录失败次数过多,请稍后再试"), null);
         }
         Authenticator.LoginResult result;
@@ -63,6 +67,7 @@ public class AuthController {
             result = authenticator.login(username, password);
         } catch (AuthError e) {
             throttle.recordFailure(username, ip);
+            metrics.inc("login_failures_total");
             return jsonResponse(401, Map.of("error", e.getMessage()), null);
         }
         throttle.reset(username, ip);

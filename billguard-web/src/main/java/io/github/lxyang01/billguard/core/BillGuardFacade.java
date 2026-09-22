@@ -50,6 +50,7 @@ public final class BillGuardFacade {
     private final AgentProvider agentProvider;
     private final Duration runTimeout;
     private final java.util.function.Consumer<String> traceDeleter;
+    private io.github.lxyang01.billguard.metrics.AppMetrics metrics;   // 可空:测试直构不埋点
 
     public BillGuardFacade(BillRepository bills, BillAnomalies anomalies,
                            PgConversationStore conversations, PgApprovalStore approvals,
@@ -68,6 +69,16 @@ public final class BillGuardFacade {
         this.agentProvider = agentProvider;
         this.runTimeout = runTimeout;
         this.traceDeleter = traceDeleter;
+    }
+
+    public void setMetrics(io.github.lxyang01.billguard.metrics.AppMetrics metrics) {
+        this.metrics = metrics;
+    }
+
+    private void inc(String name) {
+        if (metrics != null) {
+            metrics.inc(name);
+        }
     }
 
     /** 证据来自持久化 trace 的 tool_end 事件(与 /api/runs 同一数据源,单一事实)。 */
@@ -119,6 +130,7 @@ public final class BillGuardFacade {
         RedisSessionLock lock = RedisSessionLock.acquire(redis, sessionId,
             runTimeout.plusSeconds(60)).orElse(null);
         if (lock == null) {
+            inc("lock_conflicts_total");
             throw new LockedException("另一会话操作正在进行,请稍后重试");
         }
         return lock;
@@ -187,8 +199,10 @@ public final class BillGuardFacade {
             throw new BusyException("服务繁忙,请稍后重试");
         }
         try {
-            return decideLocked(user, sessionId, approvalId,
+            Map<String, Object> decided = decideLocked(user, sessionId, approvalId,
                 "approve".equals(decision), text(body.get("note")));
+            inc("approvals_decided_total");
+            return decided;
         } finally {
             llmSlots.release();
         }

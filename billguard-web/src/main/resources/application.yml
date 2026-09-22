@@ -27,3 +27,13 @@ spring:
 billguard:
   llm-slots: 4
   run-timeout-seconds: 120
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus   # 生产抓取路径;集群内经 nginx 定向暴露
+  endpoint:
+    health:
+      probes:
+        enabled: true

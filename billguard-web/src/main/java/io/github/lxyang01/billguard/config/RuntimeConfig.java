@@ -114,15 +114,19 @@ public class RuntimeConfig {
         RedisLlmLimiter llmSlots,
         org.springframework.ai.chat.model.ChatModel chatModel,
         @Value("${BILLGUARD_LLM_MODEL:openai/gpt-4.1-mini}") String model,
-        @Value("${billguard.run-timeout-seconds:120}") long runTimeoutSeconds) {
+        @Value("${billguard.run-timeout-seconds:120}") long runTimeoutSeconds,
+        io.github.lxyang01.billguard.metrics.AppMetrics metrics) {
         var llm = new io.github.lxyang01.billguard.llm.SpringAiLlmClient(chatModel, model, null);
-        return new io.github.lxyang01.billguard.core.BillGuardFacade(bills, anomalies,
+        io.github.lxyang01.billguard.core.BillGuardFacade facade = null;
+        facade = new io.github.lxyang01.billguard.core.BillGuardFacade(bills, anomalies,
             conversations, approvals, evidence, traceReader, commands, llmSlots,
             (user, sessionId) -> io.github.lxyang01.billguard.bills.BillAgentFactory
                 .createLocalAgent(llm, java.time.Duration.ofSeconds(runTimeoutSeconds),
                     conversations, traceRef(jdbc), bills, anomalies, user.username()),
             java.time.Duration.ofSeconds(runTimeoutSeconds),
             sessionId -> jdbc.update("DELETE FROM traces WHERE session_id = ?", sessionId));
+        facade.setMetrics(metrics);
+        return facade;
     }
 
     private static io.github.lxyang01.agent.store.TraceWriter traceRef(JdbcTemplate jdbc) {
