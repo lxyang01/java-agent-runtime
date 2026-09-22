@@ -13,7 +13,7 @@ public final class Conversation {
 
     private final String sessionId;
     private String summary;
-    private final String owner;
+    private String owner;
     private final List<ChatMessage> messages;
 
     public Conversation(String sessionId, String summary, String owner, List<ChatMessage> messages) {
@@ -41,6 +41,11 @@ public final class Conversation {
 
     public String getOwner() {
         return owner;
+    }
+
+    /** 会话认领:首个访问的登录用户成为归属(仅当尚未分配)。 */
+    public void setOwner(String owner) {
+        this.owner = owner;
     }
 
     public List<ChatMessage> messages() {

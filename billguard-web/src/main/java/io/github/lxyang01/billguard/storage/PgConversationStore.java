@@ -70,6 +70,24 @@ public final class PgConversationStore implements ConversationStore {
         return count != null && count > 0;
     }
 
+    public record SessionSummary(String sessionId, String owner, List<ChatMessage> messages,
+                                 String updatedAt) {}
+
+    /** 全量会话摘要(web 侧栏列表用;文件目录是各实例本地的,列表必须来自 PG)。 */
+    public List<SessionSummary> list() {
+        return jdbc.query("SELECT session_id, owner, messages, updated_at FROM sessions "
+                + "ORDER BY updated_at DESC",
+            (rs, rowNum) -> new SessionSummary(rs.getString("session_id"), rs.getString("owner"),
+                Json.MAPPER.convertValue(readJsonb(rs.getObject("messages"), "[]"),
+                    new TypeReference<List<ChatMessage>>() {}),
+                rs.getString("updated_at")));
+    }
+
+    public int delete(String sessionId) {
+        validateSessionId(sessionId);
+        return jdbc.update("DELETE FROM sessions WHERE session_id = ?", sessionId);
+    }
+
     private static com.fasterxml.jackson.databind.JsonNode readJsonb(Object value, String fallback) {
         if (value == null) {
             return Json.readTree(fallback);
