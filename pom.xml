@@ -24,11 +24,20 @@
     <spring-boot.version>3.5.7</spring-boot.version>
     <junit.version>5.12.2</junit.version>
     <assertj.version>3.27.3</assertj.version>
+    <spring-ai.version>1.0.9</spring-ai.version>
     <testcontainers.version>2.0.5</testcontainers.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- spring-ai-bom 先于 Boot 声明以固定 AI 版本(Boot 不管理 spring-ai) -->
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- testcontainers-bom 必须在 spring-boot-dependencies 之前:Boot 3.5 内置
            TC 1.21.3 管理(旧模块名 + 旧传输层,与 Docker 28 npipe 不兼容),
            先声明者胜,故以 2.x 覆盖之 -->
