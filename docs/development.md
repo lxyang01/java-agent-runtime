@@ -1,0 +1,95 @@
+# 开发手册
+
+本手册面向本仓库的开发者(以及未来的自己):环境、构建、测试、模块地图、契约清单、排障。随每个里程碑更新。
+
+## 1. 环境
+
+| 组件 | 要求 | 备注 |
+|---|---|---|
+| JDK | 21(Temurin) | 本机装在 `~/tools/jdk-21.0.12.1+1` |
+| Maven | 3.9+ | `~/tools/apache-maven-3.9.9`;每次构建前 `. ~/tools/javaenv.sh` |
+| Docker Desktop | 运行中 | Testcontainers 集成测试需要;Windows 下需手动启动 |
+| 测试库 | 无需预建 | PG/Redis 由 Testcontainers 随测随起 |
+
+## 2. 构建与测试
+
+```bash
+. ~/tools/javaenv.sh          # 或把两个 bin 目录写进系统 PATH
+mvn verify                    # 全模块:编译 + 单测 + 集成测试
+mvn -pl agent-runtime test    # 仅 runtime(纯 JVM,不需要 Docker)
+mvn -pl billguard-web test -Dtest=PgStoresTest    # 单个测试类
+```
+
+- agent-runtime 的测试**不需要 Docker**;billguard-web 的仓储/协调/端到端测试需要(Docker 未运行时自动跳过,`@Testcontainers(disabledWithoutDocker = true)`)
+- 测试 JVM 强制 UTF-8(父 POM surefire argLine),中文断言/文案不受 Windows 默认编码影响
+
+## 3. 模块地图
+
+### agent-runtime(`io.github.lxyang01.agent`)
+
+| 包 | 职责 | 关键类型 |
+|---|---|---|
+| `engine` | 引擎主循环与配置 | `AgentRuntime`(run/resume/finalizeRejection)、`AgentSpec`、`ContextBuilder`、`DecisionParser`、`AgentDecision`(sealed) |
+| `guardrail` | 输入/输出护栏 | `Guardrails`(长度上限/PII 脱敏/数字 grounding) |
+| `policy` | 工具风险门禁 | `PolicyGateway`、`ToolPolicy`、`PolicyVerdict`(sealed: Allowed/ApprovalRequired) |
+| `tool` | 工具注册与校验 | `ToolRegistry`、`ToolDefinition`、`ToolHandler` |
+| `skill` | 技能发现与路由 | `SkillRuntime`、`SkillSource`、`Trigger`(sealed: Word/AllWords) |
+| `contract` | 用户原话动态契约 | `RequestContracts`(编译器)、`RequestContract` |
+| `store` | 存储端口 | `ConversationStore`、`ApprovalStore`、`TraceWriter` |
+| `llm` | 模型边界 | `LlmClient`、`LlmRequest`、`LlmResult`(usage 值携带,无 thread-local) |
+| `testing` | 确定性替身 | `ScriptedLlm`、`FinalLlm`、`InMemory*Store` |
+| `types` | 会话与事件 | `Conversation`、`ChatMessage`、`RunEvent`、`RunEvents`(23 事件名常量) |
+
+**引擎状态机**(spec §5.4):`RUNNING →(final 过三连门禁)COMPLETED |(高写)PAUSED_FOR_APPROVAL →人批准→ RESUMING → RUNNING | maxSteps/超时 → ABORTED`;审批状态机 `pending → approved/rejected → executed/failed` 由存储层条件 UPDATE 保证并发恰好一次。
+
+### billguard-web(`io.github.lxyang01.billguard`)
+
+| 包 | 职责 |
+|---|---|
+| `web` | REST 端点(目前 `/api/health`;M2 扩全量)+ 全局异常映射 |
+| `storage` | PG 实现:`PgConversationStore`/`PgApprovalStore`/`PgTraceWriter` + `PgJson`(JSONB 绑定) |
+| `coordination` | Redis:`RedisSessionLock`(SET NX PX + 持有者校验释放)、`RedisLlmLimiter`(check-and-incr Lua) |
+| `config` | Spring 装配(`RuntimeConfig`) |
+
+## 4. 契约清单(不得改写;修改前先读 spec §2「契约保形」)
+
+1. **PG schema**:`billguard-web/src/main/resources/db/migration/V001__init.sql` = Python 版 `V001_init.up.sql` 原文(仅文件名从 Flyway 约定);改表只能发新版本迁移
+2. **Redis 键与 Lua**:`lock:session:{sha256(session_id)}`、`llm:slots`;脚本在 `coordination` 两类里逐字
+3. **trace 事件**:23 个事件名见 `RunEvents`;traces 表 events JSONB 形状 `{timestamp,event,trace_id,step,agent,**data}`
+4. **checkpoint v2 字段**:`AgentRuntime.pauseForApproval` 内 LinkedHashMap 键序即契约
+5. **API 状态字符串**:`completed/failed/approval_pending/rejected`;审批 `pending/approved/rejected/executed/failed`
+6. **中文文案**:PROTOCOL、门禁 system 消息、AgentResponse 答案(含全角标点)逐字 —— 它们是对抗探针断言对象
+7. **时间戳**:`Timestamps.nowIso()` 固定微秒 + `+00:00`(与 Python 存量字符串字典序兼容)
+8. **字符串长度/截断**按 code point(`Strings.len/truncate`),PII 订单号正则带 `UNICODE_CHARACTER_CLASS`(测试锁定)
+
+## 5. 测试策略
+
+- **单元**(纯 JVM):runtime 全部分支;关键对齐点有专属锁定测试(如 Unicode 边界、code point、时间戳形状)
+- **集成**(Testcontainers):`PgTestBase` 共享单例 PG+Redis 容器 + Flyway 迁移 + 每测试清表;`M1EndToEndTest` 用独立容器走真实 Spring 上下文
+- **模型替身**:`ScriptedLlm`(剧本队列)/`FinalLlm` 实现 `LlmClient`,确定性、零 Key
+- 并发语义测试:`PgStoresTest.concurrent_decide_exactly_once`(双线程屏障同步,断言一胜一拒)
+
+## 6. 排障速查
+
+| 症状 | 原因与处置 |
+|---|---|
+| Testcontainers 全部 skip,日志 `BadRequestException Status 400` | Testcontainers 版本被 Boot BOM 压回 1.21.x(与 Docker 28 npipe 不兼容)。父 POM 已把 `testcontainers-bom 2.0.5` 排在 `spring-boot-dependencies` **之前** —— 先声明者胜,勿调换顺序 |
+| ryuk 镜像拉取超时 | 国内网络;surefire 已注入 `TESTCONTAINERS_RYUK_DISABLED=true`,容器由测试基座自管 |
+| 中文断言乱码/失败 | 确认走 `mvn`(surefire argLine 强制 UTF-8),勿用 IDE 默认编码跑 |
+| `java`/`mvn` not found | Git Bash 会话未 source `~/tools/javaenv.sh` |
+| health 测试失败且本地无 PG | `HealthControllerTest` 是 `@WebMvcTest` 切片,不连库;若被改成 `@SpringBootTest` 需提供数据源或排除自动配置 |
+
+## 7. 环境变量(billguard-web)
+
+| 变量 | 缺省 | 说明 |
+|---|---|---|
+| `BILLGUARD_PG_URL` | `jdbc:postgresql://localhost:5432/billguard` | PG JDBC 地址 |
+| `BILLGUARD_PG_USER` / `BILLGUARD_PG_PASSWORD` | `billguard`/`billguard` | 凭据 |
+| `BILLGUARD_REDIS_URL` | `redis://localhost:6379/0` | Lettuce 连接串 |
+| `billguard.llm-slots`(属性) | 4 | LLM 并发槽位上限 |
+
+(M2 起 `BILLGUARD_LLM_MODEL`/`BILLGUARD_LLM_BASE_URL`/API Key 等对齐 Python 版命名)
+
+## 8. 里程碑档案
+
+- **M1(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试 + web 14 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
