@@ -12,11 +12,12 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class SkillRuntimeTest {
+public class SkillRuntimeTest {
 
-    static final Path TEST_SKILLS = skillsRoot();
+    public static final Path TEST_SKILLS = skillsRoot();
 
-    static Path skillsRoot() {
+    /** 共享测试资产路径(其他测试包复用真实 4 技能)。 */
+    public static Path skillsRoot() {
         try {
             return Path.of(SkillRuntimeTest.class.getResource("/skills").toURI());
         } catch (Exception e) {
