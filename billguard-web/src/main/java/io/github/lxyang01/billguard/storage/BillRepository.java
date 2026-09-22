@@ -462,7 +462,504 @@ public final class BillRepository {
         }
     }
 
+
+    // ---- 类别规则 / 工作流 / 订阅 / 报告 / 导出 / 清空 ----
+
+    public static final java.util.List<String> WORKFLOW_STATUSES =
+        List.of("正常", "待核查", "核查中", "已确认", "已忽略");
+
+    public List<Map<String, Object>> categories(String owner) {
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "c.owner");
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT c.id, c.name, c.keywords, c.enabled, c.created_at, COUNT(t.tx_id) AS count "
+                + "FROM categories c LEFT JOIN transactions t ON t.category_id = c.id"
+                + ownerWhere.sql() + " GROUP BY c.id ORDER BY count DESC, c.name",
+            ownerWhere.params().toArray());
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> item = new LinkedHashMap<>(row);
+            item.put("keywords", parseKeywords(String.valueOf(row.get("keywords"))));
+            item.put("enabled", Boolean.TRUE.equals(row.get("enabled")));
+            item.put("count", ((Number) row.get("count")).longValue());
+            result.add(item);
+        }
+        return result;
+    }
+
+    private static List<String> parseKeywords(String json) {
+        try {
+            return io.github.lxyang01.agent.util.Json.MAPPER.readValue(json,
+                new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    public Map<String, Object> saveCategory(String name, List<String> keywords, boolean enabled,
+                                            Long categoryId, String operator, String owner) {
+        String cleanName = name == null ? "" : name.strip();
+        List<String> cleaned = keywords == null ? List.of()
+            : keywords.stream().map(String::strip).filter(k -> !k.isEmpty()).distinct().toList();
+        if (cleanName.isEmpty()) {
+            throw new IllegalArgumentException("类别名称不能为空");
+        }
+        if (cleanName.length() > 40) {
+            throw new IllegalArgumentException("类别名不能超过 40 字符");
+        }
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        Map<String, Object> old = new LinkedHashMap<>();
+        String action = "create";
+        Long id = categoryId;
+        if (id != null) {
+            List<Object> args = new ArrayList<>();
+            args.add(id);
+            args.addAll(ownerAnd.params());
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT * FROM categories WHERE id = ?" + ownerAnd.sql(), args.toArray());
+            if (rows.isEmpty()) {
+                throw new IllegalArgumentException("类别不存在：" + id);
+            }
+            Map<String, Object> row = rows.get(0);
+            old.put("name", row.get("name"));
+            old.put("keywords", parseKeywords(String.valueOf(row.get("keywords"))));
+            old.put("enabled", Boolean.TRUE.equals(row.get("enabled")));
+            try {
+                List<Object> args2 = new ArrayList<>();
+                args2.add(cleanName);
+                args2.add(PgJson.value(cleaned));
+                args2.add(enabled);
+                args2.add(id);
+                args2.addAll(ownerAnd.params());
+                jdbc.update("UPDATE categories SET name = ?, keywords = ?, enabled = ? "
+                    + "WHERE id = ?" + ownerAnd.sql(), args2.toArray());
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                throw new IllegalArgumentException("类别名称已存在：" + cleanName);
+            }
+            action = "update";
+        } else {
+            try {
+                org.springframework.jdbc.support.KeyHolder holder =
+                    new org.springframework.jdbc.support.GeneratedKeyHolder();
+                String keywordsJson = io.github.lxyang01.agent.util.Json.write(cleaned);
+                jdbc.update(con -> {
+                    var ps = con.prepareStatement("INSERT INTO categories(name, keywords, "
+                        + "enabled, created_at, owner) VALUES (?, ?::jsonb, ?, ?, ?)",
+                        java.sql.Statement.RETURN_GENERATED_KEYS);
+                    ps.setString(1, cleanName);
+                    ps.setString(2, keywordsJson);
+                    ps.setBoolean(3, enabled);
+                    ps.setString(4, now);
+                    ps.setString(5, owner);
+                    return ps;
+                }, holder);
+                Object key = holder.getKeys().get("id");
+                id = key == null ? null : ((Number) key).longValue();
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                throw new IllegalArgumentException("类别名称已存在：" + cleanName);
+            }
+        }
+        Map<String, Object> newRule = new LinkedHashMap<>();
+        newRule.put("name", cleanName);
+        newRule.put("keywords", cleaned);
+        newRule.put("enabled", enabled);
+        Map<String, Object> audit = new LinkedHashMap<>();
+        audit.put("rule_action", action);
+        audit.put("id", id);
+        audit.put("old", old);
+        audit.put("new", newRule);
+        jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, owner) "
+                + "VALUES ('', 'category', ?, ?::jsonb, ?, ?)",
+            operator, PgJson.value(audit), now, owner);
+        Map<String, Object> result = new LinkedHashMap<>(newRule);
+        result.put("id", id);
+        result.put("created_at", now);
+        return result;
+    }
+
+    public Map<String, Object> deleteCategory(long categoryId, String operator, String owner) {
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        List<Object> args = new ArrayList<>();
+        args.add(categoryId);
+        args.addAll(ownerAnd.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT * FROM categories WHERE id = ?" + ownerAnd.sql(), args.toArray());
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("类别不存在：" + categoryId);
+        }
+        Map<String, Object> row = rows.get(0);
+        List<Object> args2 = new ArrayList<>();
+        args2.add(categoryId);
+        args2.addAll(ownerAnd.params());
+        List<String> affected = jdbc.queryForList(
+            "SELECT tx_id FROM transactions WHERE category_id = ?" + ownerAnd.sql(),
+            String.class, args2.toArray());
+        // 引用该类别的交易置空,由 rematch 或关键词规则重新归类
+        jdbc.update("UPDATE transactions SET category_id = NULL WHERE category_id = ?"
+            + ownerAnd.sql(), args2.toArray());
+        Map<String, Object> old = new LinkedHashMap<>();
+        old.put("name", row.get("name"));
+        old.put("keywords", parseKeywords(String.valueOf(row.get("keywords"))));
+        old.put("enabled", Boolean.TRUE.equals(row.get("enabled")));
+        Map<String, Object> audit = new LinkedHashMap<>();
+        audit.put("rule_action", "delete");
+        audit.put("id", categoryId);
+        audit.put("old", old);
+        audit.put("unassigned", affected);
+        jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, owner) "
+                + "VALUES ('', 'category', ?, ?::jsonb, ?, ?)",
+            operator, PgJson.value(audit), now, owner);
+        jdbc.update("DELETE FROM categories WHERE id = ?" + ownerAnd.sql(), args2.toArray());
+        Map<String, Object> deleted = new LinkedHashMap<>();
+        deleted.put("id", categoryId);
+        deleted.putAll(old);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("deleted", deleted);
+        result.put("unassigned", affected.size());
+        return result;
+    }
+
+    public Map<String, Object> rematchCategories(String operator, String owner) {
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        List<CategoryRule> rules = categoryRules(owner);
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "owner");
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        long otherId = 0;
+        int changed = 0;
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT tx_id, merchant, note, category_id FROM transactions" + ownerWhere.sql(),
+            ownerWhere.params().toArray());
+        for (Map<String, Object> row : rows) {
+            String haystack = (row.get("merchant") + " " + row.get("note"))
+                .toLowerCase(java.util.Locale.ROOT);
+            Long newId = null;
+            for (CategoryRule rule : rules) {
+                boolean hit = rule.keywords().stream().anyMatch(keyword ->
+                    haystack.contains(String.valueOf(keyword)
+                        .toLowerCase(java.util.Locale.ROOT)));
+                if (hit) {
+                    newId = rule.id();
+                    break;
+                }
+            }
+            if (newId == null) {
+                if (otherId == 0) {
+                    otherId = ensureCategory("其他", now, owner);
+                }
+                newId = otherId;
+            }
+            Long current = row.get("category_id") == null ? null
+                : ((Number) row.get("category_id")).longValue();
+            if (newId.equals(current)) {
+                continue;
+            }
+            List<Object> args = new ArrayList<>();
+            args.add(newId);
+            args.add(row.get("tx_id"));
+            args.addAll(ownerAnd.params());
+            jdbc.update("UPDATE transactions SET category_id = ? WHERE tx_id = ?"
+                + ownerAnd.sql(), args.toArray());
+            Map<String, Object> audit = new LinkedHashMap<>();
+            audit.put("category_id", newId);
+            audit.put("source", "rematch");
+            jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, "
+                    + "owner) VALUES (?, 'category', ?, ?::jsonb, ?, ?)",
+                row.get("tx_id"), operator, PgJson.value(audit), now, owner);
+            changed++;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("transactions", rows.size());
+        result.put("changed", changed);
+        result.put("rule_count", rules.size());
+        return result;
+    }
+
+    public Map<String, Object> updateWorkflow(List<String> txIds, String operator, String status,
+                                              String note, String owner) {
+        List<String> ids = txIds.stream().map(s -> s == null ? "" : s.strip())
+            .filter(s -> !s.isEmpty()).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("至少选择一条交易");
+        }
+        if (ids.size() > 200) {
+            throw new IllegalArgumentException("单次最多处理 200 条交易");
+        }
+        if (!WORKFLOW_STATUSES.contains(status)) {
+            throw new IllegalArgumentException("status 必须是" + String.join("、", WORKFLOW_STATUSES));
+        }
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("status", status);
+        changes.put("note", note == null ? "" : note.strip());
+        List<String> updated = new ArrayList<>();
+        for (String txId : ids) {
+            List<Object> args = new ArrayList<>();
+            args.add(txId);
+            args.addAll(OwnerScope.and(owner, "owner").params());
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT status FROM transactions WHERE tx_id = ?"
+                    + OwnerScope.and(owner, "owner").sql(), args.toArray());
+            if (rows.isEmpty()) {
+                continue;
+            }
+            List<Object> args2 = new ArrayList<>();
+            args2.add(status);
+            args2.add(txId);
+            args2.addAll(OwnerScope.and(owner, "owner").params());
+            jdbc.update("UPDATE transactions SET status = ? WHERE tx_id = ?"
+                + OwnerScope.and(owner, "owner").sql(), args2.toArray());
+            Map<String, Object> audit = new LinkedHashMap<>();
+            audit.put("old_status", rows.get(0).get("status"));
+            audit.putAll(changes);
+            jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, "
+                    + "owner) VALUES (?, 'workflow', ?, ?::jsonb, ?, ?)",
+                txId, operator, PgJson.value(audit), now, owner);
+            updated.add(txId);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("updated_tx_ids", updated);
+        result.put("count", updated.size());
+        result.put("changes", changes);
+        result.put("operator", operator);
+        return result;
+    }
+
+    public List<Map<String, Object>> transactionAudits(String txId, int limit, String owner) {
+        // 审计行自带 owner 戳:同号交易可在多个 owner 名下,双 owner 过滤防越权带出
+        OwnerScope.Clause auditAnd = OwnerScope.and(owner, "a.owner");
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "t.owner");
+        List<Object> args = new ArrayList<>();
+        args.add(txId);
+        args.addAll(auditAnd.params());
+        args.addAll(ownerAnd.params());
+        args.add(Math.min(Math.max(1, limit), 200));
+        return jdbc.queryForList(
+            "SELECT a.* FROM tx_audits a WHERE a.tx_id = ?" + auditAnd.sql() + " AND EXISTS "
+                + "(SELECT 1 FROM transactions t WHERE t.tx_id = a.tx_id" + ownerAnd.sql()
+                + ") ORDER BY a.id LIMIT ?", args.toArray());
+    }
+
+    public List<Map<String, Object>> recentAudits(int limit, String owner) {
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "owner");
+        List<Object> args = new ArrayList<>(ownerWhere.params());
+        args.add(Math.min(Math.max(1, limit), 200));
+        return jdbc.queryForList("SELECT * FROM tx_audits" + ownerWhere.sql()
+            + " ORDER BY id DESC LIMIT ?", args.toArray());
+    }
+
+    public List<Map<String, Object>> imports(int limit, String owner) {
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "owner");
+        List<Object> args = new ArrayList<>(ownerWhere.params());
+        args.add(Math.min(Math.max(1, limit), 100));
+        return jdbc.queryForList("SELECT * FROM imports" + ownerWhere.sql()
+            + " ORDER BY id DESC LIMIT ?", args.toArray());
+    }
+
+    public Map<String, Object> updateTransactionCategory(String txId, String category,
+                                                         String operator, String owner) {
+        String safeTxId = txId == null ? "" : txId.strip();
+        String safeCategory = category == null ? "" : category.strip();
+        if (safeTxId.isEmpty() || safeCategory.isEmpty()) {
+            throw new IllegalArgumentException("tx_id 和 category 不能为空");
+        }
+        if (safeCategory.length() > 40) {
+            throw new IllegalArgumentException("类别名不能超过 40 字符");
+        }
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "t.owner");
+        List<Object> args = new ArrayList<>();
+        args.add(safeTxId);
+        args.addAll(ownerAnd.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT t.tx_id, COALESCE(c.name, '未分类') AS category FROM transactions t "
+                + "LEFT JOIN categories c ON c.id = t.category_id WHERE t.tx_id = ?"
+                + ownerAnd.sql(), args.toArray());
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("交易不存在：" + safeTxId);
+        }
+        String oldCategory = String.valueOf(rows.get(0).get("category"));
+        long categoryId = ensureCategory(safeCategory, now, owner);
+        List<Object> args2 = new ArrayList<>();
+        args2.add(categoryId);
+        args2.add(safeTxId);
+        args2.addAll(OwnerScope.and(owner, "owner").params());
+        jdbc.update("UPDATE transactions SET category_id = ? WHERE tx_id = ?"
+            + OwnerScope.and(owner, "owner").sql(), args2.toArray());
+        Map<String, Object> audit = new LinkedHashMap<>();
+        audit.put("old_category", oldCategory);
+        audit.put("new_category", safeCategory);
+        audit.put("source", "manual");
+        jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, owner) "
+                + "VALUES (?, 'category', ?, ?::jsonb, ?, ?)",
+            safeTxId, operator, PgJson.value(audit), now, owner);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("tx_id", safeTxId);
+        result.put("old_category", oldCategory);
+        result.put("new_category", safeCategory);
+        result.put("operator", operator);
+        return result;
+    }
+
+    public List<Map<String, Object>> subscriptions(String owner) {
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "s.owner");
+        OwnerScope.Clause ownerAndTx = OwnerScope.and(owner, "t.owner");
+        List<Object> args = new ArrayList<>(ownerAndTx.params());
+        args.addAll(ownerWhere.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT s.*, (SELECT MAX(t.paid_at) FROM transactions t WHERE t.merchant = s.merchant"
+                + ownerAndTx.sql() + ") AS last_paid_at FROM subscriptions s"
+                + ownerWhere.sql() + " ORDER BY s.id", args.toArray());
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> item = new LinkedHashMap<>(row);
+            item.put("active", Boolean.TRUE.equals(row.get("active")));
+            item.put("expected_amount", asDouble(row.get("expected_amount")));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public Map<String, Object> setSubscriptionActive(long subscriptionId, boolean active,
+                                                     String operator, String owner) {
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        List<Object> args = new ArrayList<>();
+        args.add(subscriptionId);
+        args.addAll(ownerAnd.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT * FROM subscriptions WHERE id = ?" + ownerAnd.sql(), args.toArray());
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("订阅不存在：" + subscriptionId);
+        }
+        List<Object> args2 = new ArrayList<>();
+        args2.add(active);
+        args2.add(subscriptionId);
+        args2.addAll(ownerAnd.params());
+        jdbc.update("UPDATE subscriptions SET active = ? WHERE id = ?" + ownerAnd.sql(),
+            args2.toArray());
+        Map<String, Object> audit = new LinkedHashMap<>();
+        audit.put("id", subscriptionId);
+        audit.put("name", rows.get(0).get("name"));
+        audit.put("active", active);
+        jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, owner) "
+                + "VALUES ('', 'subscription', ?, ?::jsonb, ?, ?)",
+            operator, PgJson.value(audit), now, owner);
+        Map<String, Object> result = new LinkedHashMap<>(rows.get(0));
+        result.put("active", active);
+        return result;
+    }
+
+    public Map<String, Object> saveReport(String sessionId, String title, String content,
+                                          String owner) {
+        String strippedTitle = title == null ? "" : title.strip();
+        final String safeTitle = strippedTitle.length() > 160
+            ? strippedTitle.substring(0, 160) : strippedTitle;
+        String safeContent = content == null ? "" : content.strip();
+        if (safeTitle.isEmpty() || safeContent.isEmpty()) {
+            throw new IllegalArgumentException("报告标题和内容不能为空");
+        }
+        String createdAt = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        org.springframework.jdbc.support.KeyHolder holder =
+            new org.springframework.jdbc.support.GeneratedKeyHolder();
+        jdbc.update(con -> {
+            var ps = con.prepareStatement("INSERT INTO reports(session_id, title, content, "
+                + "created_at, owner) VALUES (?, ?, ?, ?, ?)",
+                java.sql.Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, sessionId);
+            ps.setString(2, safeTitle);
+            ps.setString(3, safeContent);
+            ps.setString(4, createdAt);
+            ps.setString(5, owner);
+            return ps;
+        }, holder);
+        Map<String, Object> result = new LinkedHashMap<>();
+        Object reportKey = holder.getKeys().get("id");
+        result.put("id", reportKey);
+        result.put("session_id", sessionId);
+        result.put("title", safeTitle);
+        result.put("content", safeContent);
+        result.put("created_at", createdAt);
+        return result;
+    }
+
+    public List<Map<String, Object>> reports(int limit, String owner) {
+        OwnerScope.Clause ownerWhere = OwnerScope.where(owner, "owner");
+        List<Object> args = new ArrayList<>(ownerWhere.params());
+        args.add(Math.min(Math.max(1, limit), 200));
+        return jdbc.queryForList("SELECT id, session_id, title, content, created_at FROM reports"
+            + ownerWhere.sql() + " ORDER BY id DESC LIMIT ?", args.toArray());
+    }
+
+    public Map<String, Object> deleteReport(long reportId, String owner) {
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        List<Object> args = new ArrayList<>();
+        args.add(reportId);
+        args.addAll(ownerAnd.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT id, title FROM reports WHERE id = ?" + ownerAnd.sql(), args.toArray());
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("报告不存在：" + reportId);
+        }
+        jdbc.update("DELETE FROM reports WHERE id = ?" + ownerAnd.sql(), args.toArray());
+        return Map.of("deleted", rows.get(0));
+    }
+
+    public String exportCsv(BillFilters filters, String owner) {
+        Where where = where(filters == null ? BillFilters.EMPTY : filters, "t", owner);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT t.tx_id, t.paid_at, t.merchant, COALESCE(c.name, '未分类') AS category, "
+                + "t.amount, t.method, t.note FROM transactions t "
+                + "LEFT JOIN categories c ON c.id = t.category_id" + where.sql()
+                + " ORDER BY t.paid_at DESC, t.tx_id", where.params().toArray());
+        StringBuilder sb = new StringBuilder("﻿");
+        sb.append("tx_id,paid_at,merchant,category,amount,method,note\n");
+        for (Map<String, Object> row : rows) {
+            List<String> cells = List.of(
+                csv(String.valueOf(row.get("tx_id"))), csv(String.valueOf(row.get("paid_at"))),
+                csv(String.valueOf(row.get("merchant"))), csv(String.valueOf(row.get("category"))),
+                csv(String.valueOf(asDouble(row.get("amount")))),
+                csv(String.valueOf(row.get("method"))), csv(String.valueOf(row.get("note"))));
+            sb.append(String.join(",", cells)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private static String csv(String value) {
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    public Map<String, Object> purgeOwner(String owner, String operator, String note) {
+        // admin 的可见范围包含 NULL 存量行,清空语义与其视图一致:连带清除
+        String where = "admin".equals(owner)
+            ? "owner = ? OR owner IS NULL" : "owner = ?";
+        Object[] params = {owner};
+        Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("transactions", (long) jdbc.update(
+            "DELETE FROM transactions WHERE " + where, params));
+        counts.put("subscriptions", (long) jdbc.update(
+            "DELETE FROM subscriptions WHERE " + where, params));
+        counts.put("categories", (long) jdbc.update(
+            "DELETE FROM categories WHERE " + where, params));
+        counts.put("reports", (long) jdbc.update(
+            "DELETE FROM reports WHERE " + where, params));
+        jdbc.update("DELETE FROM tx_audits WHERE " + where, params);
+        jdbc.update("DELETE FROM imports WHERE " + where, params);
+        if (operator != null && !operator.isEmpty()) {
+            // 清空后留一条审计标记,证明发生过自助清空
+            jdbc.update("INSERT INTO tx_audits(tx_id, action, operator, new_value, changed_at, "
+                    + "owner) VALUES ('__purge__', 'purge', ?, ?, ?, ?)",
+                operator, note == null ? "" : note.substring(0, Math.min(200, note.length())),
+                io.github.lxyang01.agent.types.Timestamps.nowIso(), owner);
+        }
+        return counts;
+    }
+
     // ---- 数值规整 ----
+
 
     static double asDouble(Object value) {
         if (value instanceof Number number) {
