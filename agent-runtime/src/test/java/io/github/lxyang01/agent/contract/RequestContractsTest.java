@@ -130,8 +130,9 @@ class RequestContractsTest {
 
     @Test
     void prompt_text_renders_constraints_and_sections() {
-        var contract = RequestContracts.compile("搜索并最多返回 5 条样本",
-            skills.activate("守卫报告"));
+        // 同一输入须同时携带数量约束与 gate_terms(守卫报告),两条契约才都会编译出来
+        var input = "搜索并最多返回 5 条样本,出一份守卫报告";
+        var contract = RequestContracts.compile(input, skills.activate(input));
         var text = contract.promptText();
         assertThat(text).contains("动态参数契约：");
         assertThat(text).contains("samples/query.limit <= 5（必须显式传参）");
