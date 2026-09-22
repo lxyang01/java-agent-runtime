@@ -41,6 +41,10 @@ public final class SkillRuntime {
         this(new DirectorySkillSource(root), 2, 256_000);
     }
 
+    public SkillRuntime(SkillSource source) {
+        this(source, 2, 256_000);
+    }
+
     public SkillRuntime(SkillSource source, int maxActive, int maxSkillBytes) {
         if (maxActive < 1) {
             throw new SkillException("max_active must be positive");
@@ -352,7 +356,8 @@ public final class SkillRuntime {
     private Map<String, String> readFrontmatter(SkillMetadata candidate) {
         String raw;
         try {
-            raw = java.nio.file.Files.readString(candidate.path(), StandardCharsets.UTF_8);
+            // 统一经 SkillSource 读取(目录/类路径源同构),不再直连文件系统
+            raw = source.readSkill(candidate.name());
         } catch (IOException e) {
             throw new SkillException("cannot read skill metadata " + candidate.path() + ": " + e, e);
         }
