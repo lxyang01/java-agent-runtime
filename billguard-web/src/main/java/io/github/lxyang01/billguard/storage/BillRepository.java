@@ -282,6 +282,186 @@ public final class BillRepository {
         return result;
     }
 
+    // ---- 导入与类别 ----
+
+    public static final java.util.List<String[]> DEFAULT_CATEGORIES = List.of(
+        new String[]{"餐饮", "饿了么,美团,肯德基,麦当劳,咖啡,午餐,晚餐,奶茶"},
+        new String[]{"交通", "滴滴,地铁,公交,高铁,加油,停车"},
+        new String[]{"购物", "淘宝,京东,拼多多,天猫,超市"},
+        new String[]{"订阅", "会员,订阅,月费,年费,自动续费"},
+        new String[]{"娱乐", "电影,游戏,Steam,演出"},
+        new String[]{"居住", "房租,水电,物业,燃气"});
+
+    public Map<String, Object> importBills(String filename, String csvText, String owner) {
+        if (csvText == null || csvText.strip().isEmpty()) {
+            throw new IllegalArgumentException("CSV 内容为空");
+        }
+        var parsed = io.github.lxyang01.billguard.bills.CsvImport.parseBills(csvText);
+        int imported = 0;
+        int duplicates = 0;
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        List<CategoryRule> rules = categoryRules(owner);
+        for (var row : parsed.rows()) {
+            // 去重按 (owner, tx_id) 复合唯一:同号账单可在不同 owner 名下各自入库
+            int inserted = jdbc.update(
+                "INSERT INTO transactions(tx_id, paid_at, merchant, note, amount, method, "
+                    + "created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                    + "ON CONFLICT (COALESCE(owner, ''), tx_id) DO NOTHING",
+                row.txId(), row.paidAt(), row.merchant(), row.note(),
+                BigDecimal.valueOf(row.amount()), row.method(), now, owner);
+            if (inserted == 0) {
+                duplicates++;
+                continue;
+            }
+            imported++;
+            Long categoryId = resolveCategory(rules, row.categoryName(), row.merchant(),
+                row.note(), now, owner);
+            jdbc.update("UPDATE transactions SET category_id = ? WHERE tx_id = ? AND "
+                    + "COALESCE(owner, '') = COALESCE(?, '')",
+                categoryId, row.txId(), owner);
+        }
+        return importSummary(filename, parsed.total(), imported, duplicates, parsed.errors(),
+                owner);
+    }
+
+    public Map<String, Object> importSubscriptions(String filename, String csvText, String owner) {
+        if (csvText == null || csvText.strip().isEmpty()) {
+            throw new IllegalArgumentException("CSV 内容为空");
+        }
+        var parsed = io.github.lxyang01.billguard.bills.CsvImport.parseSubscriptions(csvText);
+        int imported = 0;
+        int duplicates = 0;
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        OwnerScope.Clause ownerAnd = OwnerScope.and(owner, "owner");
+        for (var row : parsed.rows()) {
+            List<Object> args = new ArrayList<>();
+            args.add(row.name());
+            args.add(row.merchant());
+            args.addAll(ownerAnd.params());
+            List<?> exists = jdbc.queryForList(
+                "SELECT id FROM subscriptions WHERE name = ? AND merchant = ?" + ownerAnd.sql(),
+                args.toArray());
+            if (!exists.isEmpty()) {
+                duplicates++;
+                continue;
+            }
+            jdbc.update("INSERT INTO subscriptions(name, merchant, cycle, expected_amount, "
+                    + "created_at, owner) VALUES (?, ?, ?, ?, ?, ?)",
+                row.name(), row.merchant(), row.cycle(), BigDecimal.valueOf(row.expectedAmount()),
+                now, owner);
+            imported++;
+        }
+        return importSummary(filename, parsed.total(), imported, duplicates, parsed.errors(),
+                owner);
+    }
+
+    private Map<String, Object> importSummary(String filename, int total, int imported,
+                                              int duplicates, List<String> errors, String owner) {
+        String status = switch (errors.size()) {
+            case 0 -> "completed";
+            default -> imported > 0 ? "partial" : "failed";
+        };
+        List<String> capped = errors.size() > 20 ? errors.subList(0, 20) : errors;
+        jdbc.update("INSERT INTO imports(filename, total_rows, imported_rows, duplicate_rows, "
+                + "failed_rows, failed_reasons, status, imported_at, owner) "
+                + "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)",
+            filename, total, imported, duplicates, errors.size(),
+            PgJson.value(capped), status, io.github.lxyang01.agent.types.Timestamps.nowIso(),
+            owner);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("filename", filename);
+        result.put("total_rows", total);
+        result.put("imported_rows", imported);
+        result.put("duplicate_rows", duplicates);
+        result.put("failed_rows", errors.size());
+        result.put("status", status);
+        result.put("errors", capped);
+        return result;
+    }
+
+    record CategoryRule(long id, String name, List<String> keywords) {}
+
+    /** 自动分类只看同一 owner 的启用规则。 */
+    List<CategoryRule> categoryRules(String owner) {
+        OwnerScope.Clause clause = OwnerScope.clause(owner, "owner");
+        List<Object> args = new ArrayList<>(clause.params());
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT id, name, keywords FROM categories WHERE enabled = TRUE AND "
+                + clause.sql() + " ORDER BY id", args.toArray());
+        List<CategoryRule> rules = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            List<String> keywords = new ArrayList<>();
+            try {
+                keywords = io.github.lxyang01.agent.util.Json.MAPPER.readValue(
+                    String.valueOf(row.get("keywords")),
+                    new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            } catch (Exception ignored) {
+                // 坏 keywords 视为空规则
+            }
+            rules.add(new CategoryRule(((Number) row.get("id")).longValue(),
+                String.valueOf(row.get("name")), keywords));
+        }
+        return rules;
+    }
+
+    /** 类别名不存在时即时创建(幂等)。 */
+    long ensureCategory(String name, String now, String owner) {
+        jdbc.update("INSERT INTO categories(name, keywords, enabled, created_at, owner) "
+                + "VALUES (?, '[]', TRUE, ?, ?) ON CONFLICT DO NOTHING",
+            name, now, owner);
+        OwnerScope.Clause clause = OwnerScope.clause(owner, "owner");
+        List<Object> args = new ArrayList<>();
+        args.add(name);
+        args.addAll(clause.params());
+        Long id = jdbc.queryForObject("SELECT id FROM categories WHERE name = ? AND "
+            + clause.sql(), Long.class, args.toArray());
+        return id == null ? 0 : id;
+    }
+
+    /** 类别名 → 关键词规则 → 兜底"其他"。 */
+    long resolveCategory(List<CategoryRule> rules, String categoryName, String merchant,
+                         String note, String now, String owner) {
+        if (categoryName != null && !categoryName.isEmpty()) {
+            OwnerScope.Clause clause = OwnerScope.clause(owner, "owner");
+            List<Object> args = new ArrayList<>();
+            args.add(categoryName);
+            args.addAll(clause.params());
+            List<Long> found = jdbc.queryForList("SELECT id FROM categories WHERE name = ? AND "
+                    + clause.sql(), Long.class, args.toArray());
+            if (!found.isEmpty()) {
+                return found.get(0);
+            }
+        }
+        String haystack = (merchant + " " + note).toLowerCase(java.util.Locale.ROOT);
+        for (CategoryRule rule : rules) {
+            for (String keyword : rule.keywords()) {
+                if (haystack.contains(String.valueOf(keyword).toLowerCase(java.util.Locale.ROOT))) {
+                    return rule.id();
+                }
+            }
+        }
+        return ensureCategory("其他", now, owner);
+    }
+
+    /** 首次访问时为无任何类别的 owner 播种默认类别副本(带 owner 戳)。 */
+    public void ensureUserCategories(String owner) {
+        OwnerScope.Clause clause = OwnerScope.clause(owner, "owner");
+        List<Object> args = new ArrayList<>(clause.params());
+        List<?> exists = jdbc.queryForList(
+            "SELECT 1 FROM categories WHERE " + clause.sql() + " LIMIT 1", args.toArray());
+        if (!exists.isEmpty()) {
+            return;
+        }
+        String now = io.github.lxyang01.agent.types.Timestamps.nowIso();
+        for (String[] entry : DEFAULT_CATEGORIES) {
+            List<String> keywords = java.util.Arrays.stream(entry[1].split(","))
+                .map(String::strip).toList();
+            jdbc.update("INSERT INTO categories(name, keywords, enabled, created_at, owner) "
+                    + "VALUES (?, ?::jsonb, TRUE, ?, ?)",
+                entry[0], PgJson.value(keywords), now, owner);
+        }
+    }
+
     // ---- 数值规整 ----
 
     static double asDouble(Object value) {
