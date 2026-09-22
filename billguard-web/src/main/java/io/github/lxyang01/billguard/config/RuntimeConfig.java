@@ -59,4 +59,30 @@ public class RuntimeConfig {
                                       @Value("${billguard.llm-slots:4}") int limit) {
         return new RedisLlmLimiter(commands, limit);
     }
+
+    @Bean
+    public io.github.lxyang01.billguard.coordination.RedisAuthSessions redisAuthSessions(
+        RedisCommands<String, String> commands) {
+        return new io.github.lxyang01.billguard.coordination.RedisAuthSessions(commands);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.coordination.RedisLoginThrottle loginThrottle(
+        RedisCommands<String, String> commands) {
+        return new io.github.lxyang01.billguard.coordination.RedisLoginThrottle(commands);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.storage.PgUserStore pgUserStore(
+        JdbcTemplate jdbc,
+        io.github.lxyang01.billguard.coordination.RedisAuthSessions sessions) {
+        return new io.github.lxyang01.billguard.storage.PgUserStore(jdbc, sessions);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.auth.Authenticator authenticator(
+        io.github.lxyang01.billguard.storage.PgUserStore users,
+        io.github.lxyang01.billguard.coordination.RedisAuthSessions sessions) {
+        return new io.github.lxyang01.billguard.auth.Authenticator(users, sessions);
+    }
 }
