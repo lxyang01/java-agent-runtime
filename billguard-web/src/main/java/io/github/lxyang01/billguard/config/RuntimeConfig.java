@@ -80,6 +80,59 @@ public class RuntimeConfig {
     }
 
     @Bean
+    public io.github.lxyang01.billguard.storage.BillRepository billRepository(JdbcTemplate jdbc) {
+        return new io.github.lxyang01.billguard.storage.BillRepository(jdbc);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.storage.BillAnomalies billAnomalies(
+        JdbcTemplate jdbc, io.github.lxyang01.billguard.storage.BillRepository bills) {
+        return new io.github.lxyang01.billguard.storage.BillAnomalies(jdbc, bills);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.storage.PgEvidenceStore pgEvidenceStore(
+        JdbcTemplate jdbc) {
+        return new io.github.lxyang01.billguard.storage.PgEvidenceStore(jdbc);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.storage.PgTraceReader pgTraceReader(JdbcTemplate jdbc) {
+        return new io.github.lxyang01.billguard.storage.PgTraceReader(jdbc);
+    }
+
+    @Bean
+    public io.github.lxyang01.billguard.core.BillGuardFacade billGuardFacade(
+        JdbcTemplate jdbc,
+        io.github.lxyang01.billguard.storage.BillRepository bills,
+        io.github.lxyang01.billguard.storage.BillAnomalies anomalies,
+        io.github.lxyang01.billguard.storage.PgConversationStore conversations,
+        io.github.lxyang01.billguard.storage.PgApprovalStore approvals,
+        io.github.lxyang01.billguard.storage.PgEvidenceStore evidence,
+        io.github.lxyang01.billguard.storage.PgTraceReader traceReader,
+        RedisCommands<String, String> commands,
+        RedisLlmLimiter llmSlots,
+        org.springframework.ai.chat.model.ChatModel chatModel,
+        @Value("${BILLGUARD_LLM_MODEL:openai/gpt-4.1-mini}") String model,
+        @Value("${billguard.run-timeout-seconds:120}") long runTimeoutSeconds) {
+        var llm = new io.github.lxyang01.billguard.llm.SpringAiLlmClient(chatModel, model, null);
+        return new io.github.lxyang01.billguard.core.BillGuardFacade(bills, anomalies,
+            conversations, approvals, evidence, traceReader, commands, llmSlots,
+            (user, sessionId) -> io.github.lxyang01.billguard.bills.BillAgentFactory
+                .createLocalAgent(llm, java.time.Duration.ofSeconds(runTimeoutSeconds),
+                    conversations, traceRef(jdbc), bills, anomalies, user.username()),
+            java.time.Duration.ofSeconds(runTimeoutSeconds),
+            sessionId -> jdbc.update("DELETE FROM traces WHERE session_id = ?", sessionId));
+    }
+
+    private static io.github.lxyang01.agent.store.TraceWriter traceRef(JdbcTemplate jdbc) {
+        return new io.github.lxyang01.billguard.storage.PgTraceWriter(jdbc,
+            new TransactionTemplate(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(
+                    jdbc.getDataSource())));
+    }
+
+    @Bean
     public io.github.lxyang01.billguard.auth.Authenticator authenticator(
         io.github.lxyang01.billguard.storage.PgUserStore users,
         io.github.lxyang01.billguard.coordination.RedisAuthSessions sessions) {

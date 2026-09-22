@@ -1,3 +1,9 @@
+server:
+  tomcat:
+    threads:
+      max: 16          # 有界线程池(16 线程 + 32 排队 = 48 容量,满载拒绝)
+    accept-count: 32
+
 spring:
   application:
     name: billguard-web
@@ -10,3 +16,14 @@ spring:
   data:
     redis:
       url: ${BILLGUARD_REDIS_URL:redis://localhost:6379/0}
+  ai:
+    openai:
+      api-key: ${API_KEY:${OPENROUTER_API_KEY:${OPENAI_API_KEY:dummy-local}}}
+      base-url: ${BILLGUARD_LLM_BASE_URL:https://openrouter.ai/api/v1}
+      chat:
+        options:
+          model: ${BILLGUARD_LLM_MODEL:openai/gpt-4.1-mini}
+
+billguard:
+  llm-slots: 4
+  run-timeout-seconds: 120
