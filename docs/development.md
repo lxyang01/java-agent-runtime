@@ -46,9 +46,17 @@ mvn -pl billguard-web test -Dtest=PgStoresTest    # 单个测试类
 
 | 包 | 职责 |
 |---|---|
-| `web` | REST 端点(目前 `/api/health`;M2 扩全量)+ 全局异常映射 |
-| `storage` | PG 实现:`PgConversationStore`/`PgApprovalStore`/`PgTraceWriter` + `PgJson`(JSONB 绑定) |
-| `coordination` | Redis:`RedisSessionLock`(SET NX PX + 持有者校验释放)、`RedisLlmLimiter`(check-and-incr Lua) |
+| `web` | REST 全量(`AuthController`/`ApiController`/`MetricsController`)+ `ApiExceptionHandler`(400/401/403/423/429/500) |
+| `security` | `TokenAuthFilter`/`SameOriginCsrfFilter`/`PathCapabilities`(16 条)/`SecurityConfig` |
+| `auth` | `Authenticator`/`PgUserStore`(经 storage)/`SessionCookies`/`Capabilities` |
+| `bills` | `BillFilters`/`BillPii`/`CsvImport`/`BillTools`(五工具)/`BillAgentFactory`(12 条指令) |
+| `storage` | PG:`PgConversationStore`/`PgApprovalStore`/`PgTraceWriter`/`PgTraceReader`/`PgEvidenceStore`/`PgUserStore`/`BillRepository`/`BillAnomalies` + `PgJson` |
+| `coordination` | Redis:`RedisSessionLock`/`RedisLlmLimiter`/`RedisAuthSessions`/`RedisLoginThrottle` |
+| `core` | `BillGuardFacade`(chat/审批/快照编排,锁+槽位+证据链) |
+| `llm` | `SpringAiLlmClient`(wire 改写/schema 注入/json_object) |
+| `metrics` | `AppMetrics`(Micrometer 扁平命名)/`MetricsFilter` |
+| `skills` | `ClasspathSkillSource`(fat jar 内技能资产) |
+| `cli` | `UsersCli`(管理员播种) |
 | `config` | Spring 装配(`RuntimeConfig`) |
 
 ## 4. 契约清单(不得改写;修改前先读 spec §2「契约保形」)
@@ -88,8 +96,15 @@ mvn -pl billguard-web test -Dtest=PgStoresTest    # 单个测试类
 | `BILLGUARD_REDIS_URL` | `redis://localhost:6379/0` | Lettuce 连接串 |
 | `billguard.llm-slots`(属性) | 4 | LLM 并发槽位上限 |
 
-(M2 起 `BILLGUARD_LLM_MODEL`/`BILLGUARD_LLM_BASE_URL`/API Key 等对齐 Python 版命名)
+LLM:`API_KEY`(或 `OPENROUTER_API_KEY`/`OPENAI_API_KEY`)、`BILLGUARD_LLM_BASE_URL`(默认 OpenRouter)、`BILLGUARD_LLM_MODEL`(默认 openai/gpt-4.1-mini);`BILLGUARD_SECURE_COOKIES`∈{1,true} 时 Cookie 加 Secure。
+
+## 8.5 播种管理员
+
+```bash
+echo 'Your-Password-1' | java -jar billguard-web/target/billguard-web-1.0.0-SNAPSHOT.jar   --users add admin --role admin --password-stdin   # 需先配好 PG/Redis 环境变量
+```
 
 ## 8. 里程碑档案
 
-- **M1(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试 + web 14 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
+- **M1(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
+- **M2(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m2-web.md`;web 100 测试(安全 11/账单域 33/编排 6/LLM 适配 2/API 集成 14/指标 2 等);安全三件套 + 30 端点 + 前端 + Micrometer。chat 经 HTTP 的真实模型链路需 API Key(容器外 `--users add` 播种后 `docker compose up` 体验),集成测试以 Facade+ScriptedLlm 覆盖同等编排语义。
