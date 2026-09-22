@@ -121,7 +121,9 @@ class BillCrudTest extends PgTestBase {
         assertThat(subs).hasSize(1);
         assertThat(subs.get(0).get("active")).isEqualTo(true);
         assertThat(subs.get(0).get("last_paid_at")).isEqualTo("2026-03-01 10:00:00");
-        var toggled = bills.setSubscriptionActive(1L, false, "alice", "alice");
+        Long subId = jdbc.queryForObject(
+            "SELECT id FROM subscriptions WHERE owner = 'alice'", Long.class);
+        var toggled = bills.setSubscriptionActive(subId, false, "alice", "alice");
         assertThat(toggled.get("active")).isEqualTo(false);
         assertThatThrownBy(() -> bills.setSubscriptionActive(99L, true, "alice", "alice"))
             .hasMessage("订阅不存在：99");
