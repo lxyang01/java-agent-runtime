@@ -11,6 +11,10 @@
   </parent>
 
   <artifactId>billguard-mcp</artifactId>
+  <properties>
+    <!-- 默认 bill;work-item 构建用 -Dbillguard.mcp.main-class=...WorkItemMcpServerApplication -->
+    <billguard.mcp.main-class>${project.groupId}.billguard.mcp.BillMcpServerApplication</billguard.mcp.main-class>
+  </properties>
   <name>BillGuard MCP Servers</name>
   <description>两个 MCP server(bill :8010 / work-item :8020),streamable-http 无状态传输;
     与 web 共用 billguard-domain(账单/工单/存储单一实现)</description>
@@ -87,6 +91,10 @@
             <goals>
               <goal>repackage</goal>
             </goals>
+            <configuration>
+              <!-- 一个模块两个入口:按 profile 分别出可执行 jar -->
+              <mainClass>${billguard.mcp.main-class}</mainClass>
+            </configuration>
           </execution>
         </executions>
       </plugin>
