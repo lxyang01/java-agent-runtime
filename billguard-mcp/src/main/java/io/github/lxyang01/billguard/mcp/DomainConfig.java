@@ -12,8 +12,8 @@ public class DomainConfig {
 
     @org.springframework.context.annotation.Profile("work-item")
     @Bean
-    public PgWorkItemStore pgWorkItemStore(JdbcTemplate jdbc, TransactionTemplate tx) {
-        return new PgWorkItemStore(jdbc, tx);
+    public PgWorkItemStore pgWorkItemStore(JdbcTemplate jdbc, TransactionTemplate mcpTransactionTemplate) {
+        return new PgWorkItemStore(jdbc, mcpTransactionTemplate);
     }
 
     @org.springframework.context.annotation.Profile("bill")
@@ -32,7 +32,7 @@ public class DomainConfig {
     }
 
     @Bean
-    public TransactionTemplate transactionTemplate(JdbcTemplate jdbc) {
+    public TransactionTemplate mcpTransactionTemplate(JdbcTemplate jdbc) {
         return new TransactionTemplate(
             new org.springframework.jdbc.datasource.DataSourceTransactionManager(
                 jdbc.getDataSource()));

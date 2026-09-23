@@ -15,6 +15,7 @@
     <module>agent-runtime</module>
     <module>billguard-domain</module>
     <module>billguard-mcp</module>
+    <module>billguard-eval</module>
     <module>billguard-web</module>
   </modules>
 
@@ -77,6 +78,11 @@
       <dependency>
         <groupId>io.github.lxyang01</groupId>
         <artifactId>billguard-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.lxyang01</groupId>
+        <artifactId>billguard-eval</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

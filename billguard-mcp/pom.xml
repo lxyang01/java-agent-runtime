@@ -94,6 +94,7 @@
             <configuration>
               <!-- 一个模块两个入口:按 profile 分别出可执行 jar -->
               <mainClass>${billguard.mcp.main-class}</mainClass>
+              <classifier>exec</classifier>
             </configuration>
           </execution>
         </executions>

@@ -25,6 +25,7 @@ public class RuntimeConfig {
     }
 
     @Bean
+    @org.springframework.context.annotation.Primary
     public TransactionTemplate transactionTemplate(DataSource dataSource) {
         return new TransactionTemplate(new DataSourceTransactionManager(dataSource));
     }
