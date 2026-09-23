@@ -26,23 +26,54 @@ public class UsersCli implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        List<String> values = args.getOptionValues("users");
-        if (values == null || values.isEmpty() || !"add".equals(values.get(0))) {
+        // Spring 实测(UsersCliArgsTest 锁定):--users=add 绑定值到选项;
+        // "--users add" 的 add 则进 nonOptionArgs。两种形态都支持。
+        List<String> nonOption = args.getNonOptionArgs();
+        boolean equalsForm = args.getOptionValues("users") != null
+            && !args.getOptionValues("users").isEmpty()
+            && "add".equals(args.getOptionValues("users").get(0));
+        boolean spaceForm = args.containsOption("users")
+            && args.getOptionValues("users").isEmpty()
+            && nonOption.stream().anyMatch("add"::equals);
+        if (!equalsForm && !spaceForm) {
             return;
         }
         if (users.count() > 0) {
             System.out.println("用户库非空,跳过播种(现有用户数:" + users.count() + ")");
             return;
         }
-        List<String> nonOption = args.getNonOptionArgs();
-        // --users add <name>:name 在 nonOptionArgs(经 main 透传)
-        String username = nonOption.isEmpty()
-            ? firstOrNull(args.getOptionValues("username")) : nonOption.get(0);
+        // 用户名:= 形式下是首个非选项参数;空格形式下是 add 的下一个 token
+        String username = null;
+        for (int i = 0; i + 1 < nonOption.size(); i++) {
+            if ("add".equals(nonOption.get(i))) {
+                username = nonOption.get(i + 1);
+                break;
+            }
+        }
+        if (username == null && !nonOption.isEmpty()
+                && !"add".equals(nonOption.get(0))) {
+            username = nonOption.get(0);   // --users=add admin 形态
+        }
+        if (username == null) {
+            username = firstOrNull(args.getOptionValues("username"));
+        }
         if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("用法:--users add <用户名> --role <角色> [--password-stdin]");
+            throw new IllegalArgumentException("用法:--users add <用户名> --role <角色> [--password <密码>|--password-stdin]");
         }
         String role = firstOrNull(args.getOptionValues("role"));
         String password;
+        if (role == null && spaceForm) {
+            // 空格形式:--role admin 的 admin 在 nonOption(add/用户名 之后)
+            for (int i = 0; i < nonOption.size(); i++) {
+                if ("--role".equals(nonOption.get(i)) && i + 1 < nonOption.size()) {
+                    role = nonOption.get(i + 1);
+                    break;
+                }
+            }
+        }
+        if (role == null) {
+            role = "admin";
+        }
         if (args.containsOption("password-stdin")) {
             try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
