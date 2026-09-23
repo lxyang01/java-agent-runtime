@@ -282,7 +282,7 @@ public final class BillAnomalies {
             .toFormatter());
     }
 
-    /** Python %g:整数无小数点,小数去尾零。 */
+    /** %g:整数无小数点,小数去尾零。 */
     static String gFormat(double value) {
         if (value == Math.rint(value) && !Double.isInfinite(value) && Math.abs(value) < 1e15) {
             return String.valueOf((long) value);

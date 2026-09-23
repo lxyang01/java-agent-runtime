@@ -46,7 +46,7 @@ class PolicyGatewayTest {
     }
 
     @Test
-    void risk_wire_values_match_python_strings() {
+    void risk_wire_values_match_wire_contract() {
         assertThat(RiskLevel.READ.wire()).isEqualTo("read");
         assertThat(RiskLevel.LOW_WRITE.wire()).isEqualTo("low_write");
         assertThat(RiskLevel.HIGH_WRITE.wire()).isEqualTo("high_write");

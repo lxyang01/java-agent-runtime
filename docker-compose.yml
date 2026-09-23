@@ -1,4 +1,4 @@
-# 拓扑与 Python 版逐项对齐:nginx(ip_hash)+ web×2(无状态)+ PG + Redis + 2×MCP。
+# 拓扑:nginx(ip_hash)+ web×2(无状态)+ PG + Redis + 2×MCP。
 # 差异(有意):镜像 = Temurin JRE(多阶段);MCP server 用 Spring profile 选择;
 # schema 迁移由 Flyway 启动即执行(无需 AUTO_MIGRATE 门禁)。
 services:

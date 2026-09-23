@@ -32,7 +32,7 @@ public class ApiController {
         this.anomalies = anomalies;
     }
 
-    /** 对齐 Python for_user:每次受限访问惰性播种该 owner 的默认类别(幂等)。 */
+    /** for_user:每次受限访问惰性播种该 owner 的默认类别(幂等)。 */
     private BillRepository scoped(User user) {
         bills.ensureUserCategories(user.username());
         return bills;

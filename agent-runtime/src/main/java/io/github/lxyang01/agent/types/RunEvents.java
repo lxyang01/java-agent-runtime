@@ -1,7 +1,7 @@
 package io.github.lxyang01.agent.types;
 
 /**
- * 事件名常量(契约保形:与 Python 版 engine.py 的 _emit 调用逐字一致,
+ * 事件名常量(契约保形:与 参考实现 engine.py 的 _emit 调用逐字一致,
  * traces 表 events JSONB 与 /api/runs 投影都依赖这些字符串)。
  */
 public final class RunEvents {

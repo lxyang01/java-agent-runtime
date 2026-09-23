@@ -1,7 +1,7 @@
 package io.github.lxyang01.agent.util;
 
 /**
- * 字符串长度/截断按 code point 计,对齐 Python {@code len()} 与切片语义。
+ * 字符串长度/截断按 code point 计,按 code point 计 与切片语义。
  * (Java {@code String.length()} 计 UTF-16 单元,emoji 等增补平面字符会多计一,长度门禁必须统一。)
  */
 public final class Strings {

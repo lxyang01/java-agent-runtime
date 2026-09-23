@@ -13,7 +13,7 @@ import java.util.List;
 class AdversarialSuiteTest {
 
     @org.junit.jupiter.api.Test
-    void catalog_matches_python_25_probes() throws Exception {
+    void catalog_lists_all_25_probes() throws Exception {
         assertThat(AdversarialCatalog.ALL).hasSize(25);
         // id 连续且无重复
         var ids = AdversarialCatalog.ALL.stream().map(AdversarialCatalog.Entry::id).toList();

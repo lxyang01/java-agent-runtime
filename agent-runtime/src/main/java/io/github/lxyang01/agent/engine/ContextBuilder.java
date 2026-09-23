@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 把持久状态编译为模型可见上下文。系统文案与预算算法逐字对齐 Python context.py
+ * 把持久状态编译为模型可见上下文。系统文案与预算算法逐字context.py
  * (PROTOCOL 与门禁提示语是行为契约,修改会改变模型侧行为)。
  */
 public final class ContextBuilder {

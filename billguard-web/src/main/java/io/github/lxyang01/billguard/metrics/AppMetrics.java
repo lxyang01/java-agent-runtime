@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Component;
 
 /**
- * 进程内指标(Micrometer 注册表,扁平命名与 Python metrics.py 对齐:
+ * 进程内指标(Micrometer 注册表,扁平命名与 metrics.py 对齐:
  * http_requests_total / http_status_{code} / login_failures_total /
  * login_throttle_blocks_total / approvals_decided_total / lock_conflicts_total /
  * llm_calls_total / llm_failures_total / tool_calls_total / tool_failures_total;
@@ -50,7 +50,7 @@ public class AppMetrics {
         llmSlotsInUse.decrementAndGet();
     }
 
-    /** JSON 快照:形状对齐 Python metrics.snapshot()(counters/timings/gauges 三段)。 */
+    /** JSON 快照:形状指标快照(counters/timings/gauges 三段)。 */
     public Map<String, Object> snapshot() {
         Map<String, Object> countersView = new LinkedHashMap<>();
         counters.forEach((name, counter) -> countersView.put(name,

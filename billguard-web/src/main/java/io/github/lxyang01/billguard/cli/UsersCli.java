@@ -11,7 +11,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 /**
- * 管理员播种 CLI(对齐 python -m billguard.users add):
+ * 管理员播种 CLI():
  * `java -jar billguard-web.jar --users add admin --role admin --password-stdin`
  * 存在 --users 参数时执行后退出;普通启动完全无感。
  */

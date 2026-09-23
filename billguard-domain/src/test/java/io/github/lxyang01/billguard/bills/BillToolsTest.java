@@ -39,7 +39,7 @@ class BillToolsTest extends PgTestBase {
     }
 
     @Test
-    void schemas_wire_shape_matches_python() {
+    void schemas_wire_shape_matches_contract() {
         var registry = BillTools.build(bills, anomalies, "alice");
         assertThat(registry.names()).containsExactly("bill_overview", "bill_compare",
             "bill_anomalies", "bill_search", "bill_samples");

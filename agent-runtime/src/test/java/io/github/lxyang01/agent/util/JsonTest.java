@@ -10,7 +10,7 @@ class JsonTest {
 
     @Test
     void write_keeps_non_ascii_verbatim() {
-        // 对齐 Python json.dumps(..., ensure_ascii=False)
+        // 非 ASCII 不转义
         assertThat(Json.write(Map.of("k", "中文"))).isEqualTo("{\"k\":\"中文\"}");
     }
 

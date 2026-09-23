@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class TimestampsTest {
 
     @Test
-    void nowIso_matches_python_shape() {
+    void nowIso_matches_iso_microsecond_shape() {
         assertThat(Timestamps.nowIso())
             .matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}\\+00:00");
     }

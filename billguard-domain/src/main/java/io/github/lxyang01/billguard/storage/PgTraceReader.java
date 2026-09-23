@@ -75,7 +75,7 @@ public final class PgTraceReader {
         return events;
     }
 
-    /** run 摘要:状态推导/活跃时长/token 累计(对齐 Python _summary)。 */
+    /** run 摘要:状态推导/活跃时长/token 累计(_summary)。 */
     private static Map<String, Object> summary(String traceId, List<Map<String, Object>> input) {
         List<Map<String, Object>> ordered = new ArrayList<>(input);
         ordered.sort(Comparator.comparing(event -> String.valueOf(event.getOrDefault("timestamp",

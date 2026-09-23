@@ -47,7 +47,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
- * 可审计 Agent 引擎主循环。逐语义对齐 Python engine.HarnessEngine:
+ * 可审计 Agent 引擎主循环。逐语义engine.HarnessEngine:
  * 步数上限/时限、JSON 决策协议、final 三连门禁、动态参数契约、
  * 三阶段审批暂停与恢复、确定性历史压缩、事件全量外发。
  */
@@ -792,7 +792,7 @@ public final class AgentRuntime {
         return UUID.randomUUID().toString().replace("-", "");
     }
 
-    /** 对齐 Python %g:整数无小数点,小数去尾零。 */
+    /** %g:整数无小数点,小数去尾零。 */
     static String gFormat(double value) {
         if (value == Math.rint(value) && !Double.isInfinite(value)
             && Math.abs(value) < 1e15) {

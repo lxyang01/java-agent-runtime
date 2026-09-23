@@ -5,7 +5,7 @@ import java.util.Map;
 /**
  * 模型单步输出解析后的类型化结果。
  * 解析失败抛 {@link DecisionParseException} → 引擎记 run_error 以 failed 收尾
- * (行为契约,对齐 Python 版 —— 不做注入重试)。
+ * (行为契约, —— 不做注入重试)。
  */
 public sealed interface AgentDecision permits ToolCallDecision, FinalDecision {
 

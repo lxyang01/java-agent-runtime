@@ -1,6 +1,6 @@
 package io.github.lxyang01.agent.types;
 
-/** AgentResponse.status 的取值(API 序列化契约,与 Python 版字符串一致)。 */
+/** AgentResponse.status 的取值(API 序列化契约,与 参考实现字符串一致)。 */
 public final class AgentStatuses {
 
     public static final String COMPLETED = "completed";

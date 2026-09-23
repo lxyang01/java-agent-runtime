@@ -21,7 +21,7 @@ import org.springframework.ai.openai.api.ResponseFormat;
 
 /**
  * LlmClient 的生产实现:Spring AI OpenAI 兼容 ChatModel(OpenRouter 可用)。
- * wire 改写逐字对齐 Python llm.py:tool 角色消息改写为 user 的
+ * wire 改写逐字
  * "[工具 X 的执行结果]";工具 schema 序列化为一条 system 消息插在首条 system 之后;
  * response_format 固定 json_object(引擎按 JSON 决策协议解析)。
  */
@@ -49,7 +49,7 @@ public final class SpringAiLlmClient implements LlmClient {
             }
             if (message.role() == ChatRole.SYSTEM && !inserted) {
                 wire.add(new SystemMessage(message.content()));
-                // 工具 schema 紧跟首条 system(与 Python enriched.insert(1, ...) 同位)
+                // 工具 schema 紧跟首条 system(与 enriched.insert(1, ...) 同位)
                 if (!request.toolSchemas().isEmpty()) {
                     wire.add(new SystemMessage("可用工具 JSON Schema：\n"
                         + Json.write(request.toolSchemas())));

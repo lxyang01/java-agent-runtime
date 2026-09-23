@@ -26,7 +26,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * 安全装配:STATELESS(不建 HttpSession)、关默认 CSRF(同源校验是唯一 CSRF 防线)、
  * TokenAuthFilter → SameOriginCsrfFilter → 路径能力门禁 → 授权。
- * JSON 错误体形状 {"error": "..."} 与 Python 一致。
+ * JSON 错误体形状 {"error": "..."} 与 一致。
  */
 @Configuration
 @EnableWebSecurity

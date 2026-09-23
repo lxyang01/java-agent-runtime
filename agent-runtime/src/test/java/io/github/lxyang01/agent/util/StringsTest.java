@@ -8,7 +8,7 @@ class StringsTest {
 
     @Test
     void len_counts_code_points() {
-        // Python len() 语义:emoji 一个码点,Java String.length() 会算 2
+        // len() 语义:emoji 一个码点,Java String.length() 会算 2
         assertThat(Strings.len("a😀b")).isEqualTo(3);
         assertThat(Strings.len("中文")).isEqualTo(2);
     }

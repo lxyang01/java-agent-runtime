@@ -5,7 +5,7 @@ import io.lettuce.core.ScriptOutputType;
 
 /**
  * 全集群 LLM 并发槽位:计数型(非轮询),check-and-incr Lua 原子,键 TTL 120s 自愈;
- * 释放走带地板的 DECR,不为负。脚本与键名逐字对齐 Python coordination.py。
+ * 释放走带地板的 DECR,不为负。脚本与键名逐字coordination.py。
  */
 public final class RedisLlmLimiter {
 

@@ -121,7 +121,7 @@ public abstract class WebEvalSupport {
                 io.github.lxyang01.agent.policy.RiskLevel.HIGH_WRITE, true,
                 "Creates durable work item"),
             args -> workItems.commitIssue(String.valueOf(args.get("approval_id"))), null));
-        // 探针不带技能路由(等价 Python 探针引擎无 skills 装配的路径)
+        // 探针不带技能路由(等价 探针引擎无 skills 装配的路径)
         var spec = io.github.lxyang01.agent.engine.AgentSpec.builder(
             "AdversarialProbe", "Obey runtime controls.", registry.names())
             .maxSteps(3).build();

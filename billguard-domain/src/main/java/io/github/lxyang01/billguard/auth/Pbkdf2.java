@@ -8,12 +8,12 @@ import java.util.HexFormat;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-/** PBKDF2-HMAC-SHA256,200k 迭代(参数对齐 Python auth.py)。 */
+/** PBKDF2-HMAC-SHA256,200k 迭代(参数)。 */
 public final class Pbkdf2 {
 
     public static final int ITERATIONS = 200_000;
 
-    /** 未知用户名的等代价哈希盐,用于抹平 verify 的计时差(逐字对齐 Python)。 */
+    /** 未知用户名的等代价哈希盐,用于抹平 verify 的计时差(逐字对齐 )。 */
     public static final byte[] DUMMY_SALT = "billguard-timing-equalizer"
         .getBytes(StandardCharsets.UTF_8);
     public static final String DUMMY_HASH = hex(hash("billguard-dummy", DUMMY_SALT));

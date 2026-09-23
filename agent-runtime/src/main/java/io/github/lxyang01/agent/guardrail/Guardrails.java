@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 
 /**
  * 输入/输出护栏:长度上限、PII 脱敏、数字证据 grounding。
- * 逐字对齐 Python guardrails.py(模式、替换符、规整规则、6 位 HALF_EVEN 取整)。
+ * 逐字guardrails.py(模式、替换符、规整规则、6 位 HALF_EVEN 取整)。
  */
 public final class Guardrails {
 
@@ -24,7 +24,7 @@ public final class Guardrails {
 
     private record PiiPattern(String name, Pattern pattern, String replacement) {}
 
-    // order_id 模式必须 UNICODE_CHARACTER_CLASS:Python \w 含中文("订单ORD…" 无边界 → 不脱敏),
+    // order_id 模式必须 UNICODE_CHARACTER_CLASS:Unicode 词边界含中文("订单ORD…" 无边界 → 不脱敏),
     // Java 默认 ASCII \b 会误判 —— 该差异由测试 order_id_directly_after_chinese_is_not_boundary 锁定。
     private static final List<PiiPattern> PII_PATTERNS = List.of(
         new PiiPattern("phone", Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)"), "[手机号]"),
@@ -111,7 +111,7 @@ public final class Guardrails {
         return result;
     }
 
-    /** Python round() 为银行家舍入(HALF_EVEN)。 */
+    /** round() 为银行家舍入(HALF_EVEN)。 */
     private static double round6(double value) {
         return BigDecimal.valueOf(value).setScale(6, RoundingMode.HALF_EVEN).doubleValue();
     }

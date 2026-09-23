@@ -53,7 +53,7 @@ class SpringAiLlmClientTest {
         assertThat(result.model()).isEqualTo("gpt-4.1-mini");
 
         assertThat(model.lastPrompt).hasSize(5);
-        // assistant 角色保留(Python wire 仅改写 tool)
+        // assistant 角色保留(wire 仅改写 tool)
         assertThat(model.lastPrompt.get(3))
             .isInstanceOf(org.springframework.ai.chat.messages.AssistantMessage.class);
         assertThat(model.lastPrompt.get(0).getText()).isEqualTo("你是守卫。");

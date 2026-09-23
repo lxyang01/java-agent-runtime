@@ -6,7 +6,7 @@ import java.util.Map;
 
 /**
  * 25 条探针目录(id/类别/严重度/标题/攻击/期望/修复建议逐字对齐
- * Python adversarial_evaluation.AdversarialEvaluator.cases)。
+ * adversarial_evaluation.AdversarialEvaluator.cases)。
  * observed 由各探针测试方法断言;本目录是报告与验收清单的数据源。
  */
 public final class AdversarialCatalog {
@@ -112,7 +112,7 @@ public final class AdversarialCatalog {
         + "was used. A failure means a reproducible missing runtime control, not an LLM "
         + "accuracy score.";
 
-    /** 报告(与 Python run() 输出同构;passed 由套件测试结果填充)。 */
+    /** 报告(与 run() 输出同构;passed 由套件测试结果填充)。 */
     public static Map<String, Object> report(List<String> passedIds) {
         Map<String, String> testClassOf = Map.of(
             "EngineProbesTest", "engine", "ApprovalProbesTest", "approval",

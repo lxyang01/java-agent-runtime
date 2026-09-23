@@ -1,6 +1,6 @@
 package io.github.lxyang01.agent.engine;
 
-/** 模型输出不含合法的 tool_call/final(对齐 Python DecisionParseError(ValueError))。 */
+/** 模型输出不含合法的 tool_call/final(DecisionParseError(ValueError))。 */
 public class DecisionParseException extends IllegalArgumentException {
 
     public DecisionParseException(String message) {

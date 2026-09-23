@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * PG 追踪写入:FOR UPDATE 锁行读-改-写追加,事务内 upsert(对齐 Python PGTraceStore)。
+ * PG 追踪写入:FOR UPDATE 锁行读-改-写追加,事务内 upsert(PGTraceStore)。
  * 写入只发生在 web 会话锁内的 run/resume 期间(单写者),FOR UPDATE 规避并发覆盖。
  */
 public final class PgTraceWriter implements TraceWriter {

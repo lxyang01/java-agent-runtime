@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 解析模型单步输出为 {@link AgentDecision}。逐分支对齐 Python parser.parse_decision:
+ * 解析模型单步输出为 {@link AgentDecision}。逐分支parser.parse_decision:
  * 围栏 JSON 优先 → 全文宽松解析(从第一个 '{' 起,忽略尾随噪声)→ 数组/函数形态/裸对象等分支。
  */
 public final class DecisionParser {

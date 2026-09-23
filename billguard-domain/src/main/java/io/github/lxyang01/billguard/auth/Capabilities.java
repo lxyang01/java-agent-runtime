@@ -5,7 +5,7 @@ import java.util.Set;
 
 /**
  * 角色能力表(内部标识,服务端与前端一致引用,不作文案展示)。
- * 能力与角色集合逐字对齐 Python auth.py。
+ * 能力与角色集合逐字。
  */
 public final class Capabilities {
 

@@ -15,7 +15,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** adv-010..adv-018:审批/门禁/预算探针(断言逐条对齐 Python)。 */
+/** adv-010..adv-018:审批/门禁/预算探针(断言逐条对齐 )。 */
 class ApprovalProbesTest extends EvalFixture {
 
     private static ToolPolicy highWrite() {

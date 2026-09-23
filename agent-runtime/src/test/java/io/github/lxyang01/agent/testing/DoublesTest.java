@@ -79,7 +79,7 @@ class DoublesTest {
     }
 
     @Test
-    void as_map_shape_matches_python_dict() {
+    void as_map_shape_matches_wire_contract() {
         var like = request();
         var map = like.raw.asMap();
         assertThat(map).containsOnlyKeys("id", "session_id", "trace_id", "step", "tool_name",

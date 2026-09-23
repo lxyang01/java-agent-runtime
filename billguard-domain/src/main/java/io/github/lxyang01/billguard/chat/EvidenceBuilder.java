@@ -98,7 +98,7 @@ public final class EvidenceBuilder {
         return value instanceof Map<?, ?> map ? (Map<String, Object>) map : new LinkedHashMap<>();
     }
 
-    /** Python %g 风格数字渲染。 */
+    /** %g 风格数字渲染。 */
     private static String gFormat(Object value) {
         if (value instanceof Number number) {
             double d = number.doubleValue();

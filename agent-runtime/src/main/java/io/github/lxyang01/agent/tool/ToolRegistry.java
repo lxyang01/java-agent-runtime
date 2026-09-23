@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
-/** 注册表:登记/查询/按白名单输出 schema/校验参数并执行。对齐 Python tools.ToolRegistry。 */
+/** 注册表:登记/查询/按白名单输出 schema/校验参数并执行。注册表语义。 */
 public final class ToolRegistry {
 
     private final Map<String, ToolDefinition> tools = new LinkedHashMap<>();
@@ -100,7 +100,7 @@ public final class ToolRegistry {
             throw new ToolException("argument " + key + " must be " + type);
         }
         if (rule.get("enum") instanceof List<?> allowedValues && !allowedValues.contains(value)) {
-            throw new ToolException("argument " + key + " must be one of " + pythonList(allowedValues));
+            throw new ToolException("argument " + key + " must be one of " + stringList(allowedValues));
         }
         if (rule.get("minimum") instanceof Number minimum && value instanceof Number number
             && number.doubleValue() < minimum.doubleValue()) {
@@ -110,7 +110,7 @@ public final class ToolRegistry {
 
     private static boolean matchesType(String type, Object value) {
         return switch (type) {
-            // Python 排除 bool 冒充 int/float;Java 中 Boolean 本就不是 Number,天然排除
+            // 排除 bool 冒充 int/float;Java 中 Boolean 本就不是 Number,天然排除
             case "string" -> value instanceof String;
             case "number" -> value instanceof Number;
             case "integer" -> value instanceof Byte || value instanceof Short
@@ -123,8 +123,8 @@ public final class ToolRegistry {
         };
     }
 
-    /** Python 列表 repr 形式(字符串带单引号),错误消息契约。 */
-    private static String pythonList(List<?> values) {
+    /** 列表 repr 形式(字符串带单引号),错误消息契约。 */
+    private static String stringList(List<?> values) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < values.size(); i++) {
             if (i > 0) {

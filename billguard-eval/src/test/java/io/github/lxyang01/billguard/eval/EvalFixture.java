@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * 评测夹具:共享 PG/Redis 容器;每探针前 resetFixtures(12 表 + 夹具用户
  * alice 与 mallory + 会话锁和槽位键清扫)。探针共用 Engine 装配
- * 与 ScriptedLlm(即 Python QueueLLM)。
+ * 与 ScriptedLlm(确定性模型替身)。
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class EvalFixture extends PgTestBase {
@@ -60,7 +60,7 @@ public abstract class EvalFixture extends PgTestBase {
         }
     }
 
-    /** 每探针前重置(对齐 _reset_fixtures;users 只删夹具,不动集群账号)。 */
+    /** 每探针前重置(users 只删夹具,不动集群账号)。 */
     protected void resetFixtures() {
         for (String table : FIXTURE_TABLES) {
             jdbc.update("DELETE FROM " + table);
@@ -74,7 +74,7 @@ public abstract class EvalFixture extends PgTestBase {
         }
     }
 
-    /** 引擎 + 事件收集(Python `_engine` 返回 (engine, events) 的等价物)。 */
+    /** 引擎 + 事件收集(`_engine` 返回 (engine, events) 的等价物)。 */
     protected record Engine(AgentRuntime runtime, List<RunEvent> events) {}
 
     protected Engine engine(Object... outputs) {
@@ -114,7 +114,7 @@ public abstract class EvalFixture extends PgTestBase {
                 dataSource)));
     }
 
-    // ---- Python 决策小件 ----
+    // ---- 决策小件 ----
 
     public static Map<String, Object> decisionTool(String name, Map<String, Object> arguments) {
         return Map.of("thought", "adversarial action",

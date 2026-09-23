@@ -971,7 +971,7 @@ public final class BillRepository {
         return 0.0;
     }
 
-    /** Python round(x, 2)(HALF_EVEN)。 */
+    /** round(x, 2)(HALF_EVEN)。 */
     static double round2(double value) {
         return round(value, 2);
     }

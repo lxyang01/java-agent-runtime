@@ -11,7 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** adv-001..adv-009:引擎级探针(纯 runtime,事件断言与 Python 逐条对齐)。 */
+/** adv-001..adv-009:引擎级探针(纯 runtime,事件断言与 逐条对齐)。 */
 class EngineProbesTest extends EvalFixture {
 
     @BeforeEach

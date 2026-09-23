@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class AuthenticatorTest {
 
     @Test
-    void capability_matrix_matches_python() {
+    void capability_matrix_matches_role_model() {
         assertThat(Capabilities.can("user", "bills_write")).isTrue();
         assertThat(Capabilities.can("user", "report_write")).isTrue();
         assertThat(Capabilities.can("user", "approval_decide")).isTrue();

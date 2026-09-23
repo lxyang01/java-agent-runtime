@@ -3,7 +3,7 @@ package io.github.lxyang01.billguard.mcp;
 /**
  * 单服务器熔断状态机:closed → open(冷却)→ half_open(一次探测)→ closed。
  * 状态迁移只在持锁临界区内发生;重连期间的 I/O 与退避睡眠在锁外执行
- * (recovering 标志让并发调用者快速失败而非阻塞等待)。对齐 Python _CircuitState。
+ * (recovering 标志让并发调用者快速失败而非阻塞等待)。_CircuitState。
  */
 final class CircuitState {
 

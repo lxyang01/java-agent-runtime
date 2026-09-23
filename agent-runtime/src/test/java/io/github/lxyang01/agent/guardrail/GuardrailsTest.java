@@ -58,7 +58,7 @@ class GuardrailsTest {
 
     @Test
     void order_id_directly_after_chinese_is_not_boundary() {
-        // Python \w 含中文:"单ORD-1234567" 中"单O"之间无词边界 → 不匹配。
+        // Unicode 词边界含中文:"单ORD-1234567" 中"单O"之间无词边界 → 不匹配。
         // 断言该行为,防止 Java 默认 ASCII \b 语义漂移(必须 UNICODE_CHARACTER_CLASS)。
         var r = Guardrails.redactPii("订单ORD-1234567");
         assertThat(r.text()).isEqualTo("订单ORD-1234567");

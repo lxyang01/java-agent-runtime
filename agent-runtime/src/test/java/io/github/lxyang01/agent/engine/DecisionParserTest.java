@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/** 逐分支对齐 Python parser.parse_decision 的语义。 */
+/** 逐分支。 */
 class DecisionParserTest {
 
     @Test

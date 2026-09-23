@@ -12,7 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * PG + Redis 测试基座:共享单例容器(整个测试 JVM 一份),Flyway 程序化迁移,
- * 每个测试方法后清空全部业务表 —— 对齐 Python 版 tests 的「独立测试库 + 零残留」语义。
+ * 每个测试方法后清空全部业务表 —— 与「独立测试库 + 零残留」语义。
  */
 @Testcontainers(disabledWithoutDocker = true)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

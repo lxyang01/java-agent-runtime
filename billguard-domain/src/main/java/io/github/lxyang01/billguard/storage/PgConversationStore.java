@@ -11,7 +11,7 @@ import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
-/** PG 会话存储:sessions 表 upsert,messages JSONB;SQL 对齐 Python PGSessionStore。 */
+/** PG 会话存储:sessions 表 upsert,messages JSONB;SQL PGSessionStore。 */
 public final class PgConversationStore implements ConversationStore {
 
     private static final RowMapper<Conversation> ROW_MAPPER = (rs, rowNum) -> {
@@ -29,7 +29,7 @@ public final class PgConversationStore implements ConversationStore {
         this.jdbc = jdbc;
     }
 
-    /** 非法会话 id 拒绝(空/超长);与 Python _key 的校验副作用一致。 */
+    /** 非法会话 id 拒绝(空/超长);与 _key 的校验副作用一致。 */
     static void validateSessionId(String sessionId) {
         if (sessionId == null || sessionId.isEmpty()
             || sessionId.codePointCount(0, sessionId.length()) > 200) {

@@ -1,7 +1,7 @@
 package io.github.lxyang01.agent.policy;
 
 /**
- * 工具策略。FORBIDDEN 一律强制 requiresApproval=true(对齐 Python ToolPolicy.__post_init__)。
+ * 工具策略。FORBIDDEN 一律强制 requiresApproval=true(ToolPolicy.__post_init__)。
  */
 public record ToolPolicy(RiskLevel riskLevel, boolean requiresApproval, String reason) {
 

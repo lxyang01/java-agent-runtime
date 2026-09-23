@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Redis 分布式会话锁。键名与 Lua 逐字对齐 Python coordination.py:
+ * Redis 分布式会话锁。键名与 Lua 逐字coordination.py:
  * SET NX PX 抢锁;释放走持有者校验 Lua,只删自己的锁。
  */
 public final class RedisSessionLock {

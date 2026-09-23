@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 技能路由:规则触发词评分(零 LLM)。逐语义对齐 Python skills.SkillRuntime —— 评分公式、
+ * 技能路由:规则触发词评分(零 LLM)。评分公式、
  * 排序键、惰性加载、版本指纹、完成契约解析与全部校验错误消息。
  */
 public final class SkillRuntime {
@@ -433,7 +433,7 @@ public final class SkillRuntime {
 
     private static List<Trigger> parseTriggers(JsonNode node, String errorMessage) {
         if (node == null) {
-            return List.of();          // 缺省空触发词列表(Python rule.get("triggers", []))
+            return List.of();          // 缺省空触发词列表(rule.get("triggers", []))
         }
         if (!node.isArray()) {
             throw new SkillException(errorMessage);
@@ -456,7 +456,7 @@ public final class SkillRuntime {
 
     private static List<String> parseStringList(JsonNode node, String errorMessage) {
         if (node == null) {
-            return List.of();          // 缺省空列表(Python rule.get(..., []))
+            return List.of();          // 缺省空列表(rule.get(..., []))
         }
         if (!node.isArray()) {
             throw new SkillException(errorMessage);

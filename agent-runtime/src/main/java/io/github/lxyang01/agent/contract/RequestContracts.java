@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 契约编译器与章节目录;正则/别名/消息逐字对齐 Python contracts.py。 */
+/** 契约编译器与章节目录;正则/别名/消息逐字contracts.py。 */
 public final class RequestContracts {
 
     private static final Pattern MAX_ROWS =

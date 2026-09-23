@@ -103,7 +103,7 @@ public class RuntimeConfig {
         return new io.github.lxyang01.billguard.storage.PgTraceReader(jdbc);
     }
 
-    /** MCP 模式:两个 MCP URL 齐备时启用(对齐 Python:缺一启动退出)。 */
+    /** MCP 模式:两个 MCP URL 齐备时启用(缺一启动退出)。 */
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty("billguard.mcp.enabled")
     public io.github.lxyang01.billguard.mcp.McpClientManager mcpClientManager(

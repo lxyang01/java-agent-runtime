@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 统一异常 → JSON 状态码映射(对齐 Python handler 的 except 链):
+ * 统一异常 → JSON 状态码映射(对齐 HTTP 层异常映射):
  * AuthError→401 / PermissionDenied→403 / 参数与工具策略错误→400 /
  * Locked→423 / Busy→429 / 兜底 500「请求失败:{msg}」。
  */

@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-/** 交易筛选条件(字段与 Python BillFilters 一致)。 */
+/** 交易筛选条件(字段与 BillFilters 一致)。 */
 public record BillFilters(
     String dateFrom,
     String dateTo,

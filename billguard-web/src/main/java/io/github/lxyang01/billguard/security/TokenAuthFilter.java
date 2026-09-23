@@ -18,7 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * 令牌认证:Cookie session= → Redis 校验 → SecurityContext(角色权限 ROLE_admin/ROLE_user)。
  * 认证失败不在此拒绝 —— 具体错误消息(未登录/过期)存请求属性,由入口点统一发 401,
- * 保持与 Python「401 先于 CSRF 403」的顺序语义。
+ * 保持与 「401 先于 CSRF 403」的顺序语义。
  */
 public class TokenAuthFilter extends OncePerRequestFilter {
 

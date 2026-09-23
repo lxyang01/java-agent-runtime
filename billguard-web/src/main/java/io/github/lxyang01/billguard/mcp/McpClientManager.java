@@ -526,7 +526,7 @@ public final class McpClientManager implements AutoCloseable {
 
     /**
      * 沿显式因果链(getCause)判定连接类失败;suppressed 不参与 —— 隐式上下文
-     * 会把无关错误误分类为连接类(Python 实测曾因此触发多余重连)。
+     * 会把无关错误误分类为连接类(实测曾因此触发多余重连)。
      */
     static boolean isConnectionError(Throwable exc) {
         java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(

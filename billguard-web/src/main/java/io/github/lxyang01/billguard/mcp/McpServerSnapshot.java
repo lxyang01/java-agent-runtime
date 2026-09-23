@@ -2,7 +2,7 @@ package io.github.lxyang01.billguard.mcp;
 
 import java.util.List;
 
-/** 连接快照:server 信息 + 工具/资源/prompt 目录(对齐 Python MCPServerSnapshot)。 */
+/** 连接快照:server 信息 + 工具/资源/prompt 目录(MCPServerSnapshot)。 */
 public record McpServerSnapshot(String name, String transport, String serverName,
                                 String serverVersion, String protocolVersion,
                                 List<McpToolInfo> tools, List<String> resources,

@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * 账单五工具注册表(描述与 schema 逐字对齐 agents/bills.py)。
- * owner 在装配期闭包绑定 —— 模型不可见、不可伪造(与 Python for_user 同构)。
+ * owner 在装配期闭包绑定 —— 模型不可见、不可伪造(与 for_user 同构)。
  */
 public final class BillTools {
 
@@ -39,7 +39,7 @@ public final class BillTools {
                 "dimension", Map.of("type", "string", "enum",
                     List.of("spike", "duplicate", "price_hike", "outlier")),
                 "limit", Map.of("type", "integer", "minimum", 1)),
-                List.of()),   // Python _object 缺省 required=[],参数全有默认值
+                List.of()),   // _object 缺省 required=[],参数全有默认值
             io.github.lxyang01.agent.policy.ToolPolicy.read(),
             args -> anomalies.anomalies(intArg(args, "days", 7),
                 strArg(args, "dimension", "spike"), intArg(args, "limit", 10), owner), null));

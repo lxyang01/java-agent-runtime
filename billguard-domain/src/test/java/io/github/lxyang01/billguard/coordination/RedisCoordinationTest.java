@@ -21,7 +21,7 @@ class RedisCoordinationTest extends PgTestBase {
     void connectRedis() {
         redisClient = RedisClient.create(redisUri());
         commands = redisClient.connect().sync();
-        // 测试键清场(与 Python sweep_redis 同义)
+        // 测试键清场(与 sweep_redis 同义)
         commands.flushdb();
     }
 

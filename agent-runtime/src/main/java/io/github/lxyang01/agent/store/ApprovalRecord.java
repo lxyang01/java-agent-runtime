@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * 审批记录(Harness 级三阶段状态机:pending → approved/rejected → executed/failed)。
- * asMap 字段名与 Python ApprovalRequest.as_dict 一致(API 契约)。
+ * asMap 字段名与 ApprovalRequest.as_dict 一致(API 契约)。
  */
 public record ApprovalRecord(
     String id,

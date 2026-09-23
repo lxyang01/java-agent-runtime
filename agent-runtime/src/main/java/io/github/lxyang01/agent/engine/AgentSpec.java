@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Agent 声明式定义(引擎的唯一配置来源);校验消息逐字对齐 Python spec.py。
+ * Agent 声明式定义(引擎的唯一配置来源);校验消息逐字。
  * runTimeout 为 null 表示不限时。
  */
 public record AgentSpec(

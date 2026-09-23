@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class AgentSpecTest {
 
     @Test
-    void defaults_match_python() {
+    void defaults_match_reference_semantics() {
         var spec = AgentSpec.builder("bill-agent", "指令", List.of("t1")).build();
         assertThat(spec.maxSteps()).isEqualTo(8);
         assertThat(spec.runTimeout()).isNull();

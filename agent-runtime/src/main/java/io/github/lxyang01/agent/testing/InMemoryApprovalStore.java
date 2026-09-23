@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** 进程内审批存储;状态机与错误消息对齐 Python policy.ApprovalStore(单线程语义)。 */
+/** 进程内审批存储;状态机与错误消息。 */
 public final class InMemoryApprovalStore implements ApprovalStore {
 
     private final Map<String, ApprovalRecord> approvals = new LinkedHashMap<>();

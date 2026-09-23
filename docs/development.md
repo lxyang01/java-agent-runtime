@@ -62,13 +62,13 @@ mvn -pl billguard-web test -Dtest=PgStoresTest    # 单个测试类
 
 ## 4. 契约清单(不得改写;修改前先读 spec §2「契约保形」)
 
-1. **PG schema**:`billguard-web/src/main/resources/db/migration/V001__init.sql` = Python 版 `V001_init.up.sql` 原文(仅文件名从 Flyway 约定);改表只能发新版本迁移
+1. **PG schema**:`billguard-web/src/main/resources/db/migration/V001__init.sql`;改表只能发新版本迁移文件,不改历史文件
 2. **Redis 键与 Lua**:`lock:session:{sha256(session_id)}`、`llm:slots`;脚本在 `coordination` 两类里逐字
 3. **trace 事件**:23 个事件名见 `RunEvents`;traces 表 events JSONB 形状 `{timestamp,event,trace_id,step,agent,**data}`
 4. **checkpoint v2 字段**:`AgentRuntime.pauseForApproval` 内 LinkedHashMap 键序即契约
 5. **API 状态字符串**:`completed/failed/approval_pending/rejected`;审批 `pending/approved/rejected/executed/failed`
 6. **中文文案**:PROTOCOL、门禁 system 消息、AgentResponse 答案(含全角标点)逐字 —— 它们是对抗探针断言对象
-7. **时间戳**:`Timestamps.nowIso()` 固定微秒 + `+00:00`(与 Python 存量字符串字典序兼容)
+7. **时间戳**:`Timestamps.nowIso()` 固定微秒 + `+00:00`(字典序可比;PG 列为 TEXT)
 8. **字符串长度/截断**按 code point(`Strings.len/truncate`),PII 订单号正则带 `UNICODE_CHARACTER_CLASS`(测试锁定)
 
 ## 5. 测试策略
@@ -107,8 +107,8 @@ echo 'Your-Password-1' | java -jar billguard-web/target/billguard-web-1.0.0-SNAP
 
 ## 8. 里程碑档案
 
-- **M1(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
-- **M5(2026-09-23 完成)**:计划 `docs/superpowers/plans/2026-09-23-m5-production.md`;docker/`Dockerfile`(maven 构建层 → temurin-21-jre + curl 运行层,web.jar 与 mcp.jar 双构件)、`docker-compose.yml`(7 服务拓扑逐项对齐 Python:nginx ip_hash/max_fails/proxy_next_upstream/Host 透传/X-Real-IP;PG 5433 与 Redis 6380 仅本机;profile 选择 MCP server)、`docker/nginx.conf`、`.github/workflows/ci.yml`(mvn verify + 对抗报告 artifact)。运维:启停 `docker compose up -d / down / down -v`;备份 `docker compose exec -T postgres pg_dump -U billguard billguard > backup.sql`;故障转移演练 `docker compose kill web-1`;扩容 = 加 web-N + nginx upstream 一行。
-- **M4(2026-09-23 完成)**:计划 `docs/superpowers/plans/2026-09-23-m4-probes.md`;新增 `billguard-eval` 模块 —— 25 条对抗探针(adv-001..025)全量平移并全绿(26 项含目录校验),分布在三个探针类:引擎级 9(EngineProbesTest)、审批/门禁 9(ApprovalProbesTest)、身份/隔离/HTTP 7(WebProbesTest,含真实 MockMvc 的登录暴破/CSRF/路径穿越);`AdversarialCatalog` 保存逐字目录(id/类别/严重度/标题/攻击/期望/修复建议)并生成与 Python 同构的报告(evaluations/adversarial-v1-report.json);adv-020 差异(Java 版无文档服务)以静态资源边界等价验证并记录于目录。
-- **M3(2026-09-23 完成)**:计划 `docs/superpowers/plans/2026-09-23-m3-mcp.md`;新增 `billguard-domain`(账单/工单/存储/认证/协调,web 与 mcp 共用)与 `billguard-mcp`(bill :8010 / work-item :8020,profile 选择,`--spring.profiles.active=bill|work-item`)模块;MCP Java SDK 0.18.4(WebMvcStatelessServerTransport + HttpClientStreamableHttpTransport);熔断状态机(1s/2s/4s 重连×3 → OPEN 60s → 半开单探);owner 身份注入(schema 隐藏 + 参数白名单 + 强制覆盖);commit_issue 双闸审批 + 卡片工单补全。测试:domain 74 + mcp 6 + web 40(+ runtime 149)。
-- **M2(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m2-web.md`;web 100 测试(安全 11/账单域 33/编排 6/LLM 适配 2/API 集成 14/指标 2 等);安全三件套 + 30 端点 + 前端 + Micrometer。chat 经 HTTP 的真实模型链路需 API Key(容器外 `--users add` 播种后 `docker compose up` 体验),集成测试以 Facade+ScriptedLlm 覆盖同等编排语义。
+- **M1(2026-09-22 完成)**:计划 `docs/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
+- **M5(2026-09-23 完成)**:计划 `docs/plans/2026-09-23-m5-production.md`;docker/`Dockerfile`(maven 构建层 → temurin-21-jre + curl 运行层,web.jar 与 mcp.jar 双构件)、`docker-compose.yml`(7 服务:nginx ip_hash/max_fails/proxy_next_upstream/Host 透传/X-Real-IP;PG 5433 与 Redis 6380 仅本机;profile 选择 MCP server)、`docker/nginx.conf`、`.github/workflows/ci.yml`(mvn verify + 对抗报告 artifact)。运维:启停 `docker compose up -d / down / down -v`;备份 `docker compose exec -T postgres pg_dump -U billguard billguard > backup.sql`;故障转移演练 `docker compose kill web-1`;扩容 = 加 web-N + nginx upstream 一行。
+- **M4(2026-09-23 完成)**:计划 `docs/plans/2026-09-23-m4-probes.md`;新增 `billguard-eval` 模块 —— 25 条对抗探针(adv-001..025)全量平移并全绿(26 项含目录校验),分布在三个探针类:引擎级 9(EngineProbesTest)、审批/门禁 9(ApprovalProbesTest)、身份/隔离/HTTP 7(WebProbesTest,含真实 MockMvc 的登录暴破/CSRF/路径穿越);`AdversarialCatalog` 保存逐字目录(id/类别/严重度/标题/攻击/期望/修复建议)并生成报告(evaluations/adversarial-v1-report.json);adv-020(文档沙箱)以静态资源路径边界等价验证并记录于目录。
+- **M3(2026-09-23 完成)**:计划 `docs/plans/2026-09-23-m3-mcp.md`;新增 `billguard-domain`(账单/工单/存储/认证/协调,web 与 mcp 共用)与 `billguard-mcp`(bill :8010 / work-item :8020,profile 选择,`--spring.profiles.active=bill|work-item`)模块;MCP Java SDK 0.18.4(WebMvcStatelessServerTransport + HttpClientStreamableHttpTransport);熔断状态机(1s/2s/4s 重连×3 → OPEN 60s → 半开单探);owner 身份注入(schema 隐藏 + 参数白名单 + 强制覆盖);commit_issue 双闸审批 + 卡片工单补全。测试:domain 74 + mcp 6 + web 40(+ runtime 149)。
+- **M2(2026-09-22 完成)**:计划 `docs/plans/2026-09-22-m2-web.md`;web 100 测试(安全 11/账单域 33/编排 6/LLM 适配 2/API 集成 14/指标 2 等);安全三件套 + 30 端点 + 前端 + Micrometer。chat 经 HTTP 的真实模型链路需 API Key(容器外 `--users add` 播种后 `docker compose up` 体验),集成测试以 Facade+ScriptedLlm 覆盖同等编排语义。

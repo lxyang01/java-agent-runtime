@@ -18,7 +18,7 @@ COPY billguard-eval/src billguard-eval/src
 RUN mvn -q -pl agent-runtime,billguard-domain,billguard-mcp,billguard-web -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
-# 健康检查需要 HTTP 客户端(JRE 无 python/wget)
+# 健康检查需要 HTTP 客户端(裸 JRE 不自带)
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

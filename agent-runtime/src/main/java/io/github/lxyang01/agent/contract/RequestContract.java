@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * 单次请求的动态契约:参数硬约束 + 输出章节门禁。逐字对齐 Python contracts.RequestContract。
+ * 单次请求的动态契约:参数硬约束 + 输出章节门禁。逐字contracts.RequestContract。
  */
 public record RequestContract(
     List<ArgumentConstraint> argumentConstraints,

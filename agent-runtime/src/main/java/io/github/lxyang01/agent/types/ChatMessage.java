@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /**
  * 会话消息。序列化键名 {@code role/content/name?/tool_call_id?} —— sessions 表 messages
- * JSONB 的既有形状,与 Python 版 Message.as_dict 一致。
+ * JSONB 的既有形状,与 参考实现 Message.as_dict 一致。
  */
 public record ChatMessage(
     @JsonProperty("role") ChatRole role,

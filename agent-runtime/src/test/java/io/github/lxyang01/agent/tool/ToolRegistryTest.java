@@ -80,7 +80,7 @@ class ToolRegistryTest {
         assertThatThrownBy(() -> registry.execute("t", Map.of("s", 5), null))
             .hasMessage("argument s must be string");
         assertThatThrownBy(() -> registry.execute("t", Map.of("n", true), null))
-            .hasMessage("argument n must be number");       // 布尔不算数字(Python 显式排除)
+            .hasMessage("argument n must be number");       // 布尔不算数字(显式排除)
         assertThatThrownBy(() -> registry.execute("t", Map.of("n", "5"), null))
             .hasMessage("argument n must be number");
         assertThatThrownBy(() -> registry.execute("t", Map.of("i", 5.0), null))

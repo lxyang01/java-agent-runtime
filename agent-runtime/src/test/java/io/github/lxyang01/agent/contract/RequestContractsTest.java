@@ -15,7 +15,7 @@ class RequestContractsTest {
 
     @Test
     void max_rows_with_sample_context_targets_samples_role() {
-        // tail 命中"样本" → samples;prefix 命中"搜索" → query 也加入(Python 同款双角色)
+        // tail 命中"样本" → samples;prefix 命中"搜索" → query 也加入(双角色)
         var contract = RequestContracts.compile("搜索一下,最多返回 5 条样本", List.of());
         assertThat(contract.argumentConstraints()).singleElement().satisfies(c -> {
             assertThat(c.toolRoles()).containsExactly("samples", "query");

@@ -48,7 +48,7 @@ class EvidenceTest extends PgTestBase {
 
     @Test
     void caps_at_twelve_entries() {
-        // 单事件样本最多取 10(Python source[:10]);两事件合计 20 → 总量截断 12
+        // 单事件样本最多取 10(source[:10]);两事件合计 20 → 总量截断 12
         java.util.List<Object> first = new java.util.ArrayList<>();
         java.util.List<Object> second = new java.util.ArrayList<>();
         for (int i = 0; i < 10; i++) {

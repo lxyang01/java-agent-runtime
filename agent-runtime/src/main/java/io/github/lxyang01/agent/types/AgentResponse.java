@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * 一次 run/resume 的对外结果。
- * approval 仅在 status=approval_pending 时非空,形状 = Python ApprovalRequest.as_dict(不含 checkpoint)。
+ * approval 仅在 status=approval_pending 时非空,形状 = ApprovalRequest.as_dict(不含 checkpoint)。
  */
 public record AgentResponse(
     String answer,

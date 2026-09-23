@@ -37,7 +37,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 /**
  * adv-019/020/021/022/023/024/025:身份/隔离/并发/HTTP 级探针
- * (024/025/020 走真实 MockMvc —— 等价 Python 临时端口真 HTTP)。
+ * (024/025/020 走真实 MockMvc —— 等价 临时端口真 HTTP)。
  */
 class WebProbesTest extends WebEvalSupport {
 

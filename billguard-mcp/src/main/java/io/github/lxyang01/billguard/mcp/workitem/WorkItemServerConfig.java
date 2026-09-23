@@ -145,7 +145,7 @@ public class WorkItemServerConfig {
         return SyncToolSpecification.builder()
             .tool(Tool.builder().name(name).description(description)
                 .inputSchema(schema(properties)).annotations(annotations).meta(meta).build())
-            // 对齐 Python FastMCP:业务异常 → isError=true 的工具结果(而非 JSONRPC error)
+            // FastMCP:业务异常 → isError=true 的工具结果(而非 JSONRPC error)
             .callHandler((ctx, request) -> {
                 try {
                     return handler.apply(ctx, request);
