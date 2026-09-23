@@ -67,7 +67,7 @@ class DoublesTest {
         var like = request();
         assertThatThrownBy(() -> store.markExecution(like.raw.id(), true, ""))
             .isInstanceOf(PolicyException.class)
-            .hasMessage("only approved requests can be executed: pending");
+            .hasMessage("only approved/executing requests can be executed: pending");
     }
 
     @Test

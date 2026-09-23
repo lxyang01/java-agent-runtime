@@ -42,7 +42,8 @@ public final class OwnerIdentity {
             ToolDefinition sanitized = new ToolDefinition(tool.name(), tool.description(),
                 parameters, tool.policy(),
                 arguments -> {
-                    // 按白名单过滤 + 身份键强制覆盖:模型伪造的 owner/operator 无效
+                    // 按白名单过滤 + 身份键强制覆盖:模型伪造的 owner/operator 无效;
+                    // 同时以服务端身份进入调用上下文(请求头携带,服务端终裁)
                     Map<String, Object> safe = new LinkedHashMap<>();
                     for (Map.Entry<String, Object> entry : arguments.entrySet()) {
                         if (properties.containsKey(entry.getKey())) {
@@ -52,7 +53,12 @@ public final class OwnerIdentity {
                     for (String identity : identities) {
                         safe.put(identity, username);
                     }
-                    return tool.handler().execute(safe);
+                    McpClientManager.beginOwnerScope(username);
+                    try {
+                        return tool.handler().execute(safe);
+                    } finally {
+                        McpClientManager.endOwnerScope();
+                    }
                 }, tool.resultFormatter());
             injected.register(sanitized);
         }

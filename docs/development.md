@@ -107,6 +107,14 @@ echo 'Your-Password-1' | java -jar billguard-web/target/billguard-web-1.0.0-SNAP
 
 ## 8. 里程碑档案
 
+- **加固迭代(2026-09-23 完成)**:外部评审 8 条意见中的 P0+P1 六项全修 ——
+  1) **策略门禁 fail-closed**:门禁移出"有仓才检查"分支无条件执行;构建期校验"含受控工具却未配审批仓"直接拒绝(`HardeningTest`);
+  2) **MCP 服务端认证**:新 `McpAuthFilter`(X-BillGuard-Api-Key 恒时比较,未配置密钥=503 拒服务)+ `McpSecurityConfig`(仅 bill/work-item profile 装配,只覆盖 /mcp,健康探活开放;显式 FilterRegistrationBean 防止共享包基线被 web 误扫);身份经 transport 的 contextExtractor 流入 handler,服务端以认证身份终裁 owner,客户端参数伪造无效(`McpAuthTest` 真回环验证);compose 经 `BILLGUARD_MCP_API_KEY` 双端对齐;
+  3) **审批状态机收窄**:`approved → executing`(markExecuting 条件 UPDATE)→ 业务执行 → executed/failed;崩溃残留 executing 被拒绝并提示 reclaim,重放窗口从"执行全程"收窄到"单工具调用";
+  4) **审计/遥测拆分**:approval_pending/approval_rejected 与高写 tool_end 为审计事件(写失败抛异常 fail-closed),其余遥测吞没降级;
+  5) **金额 BigDecimal 端到端**:CSV 导入、过滤、存储、异常检测计算全部 BigDecimal(scale 2,HALF_EVEN),double 仅存于 JSON 边界;
+  6) **测试叙事**:`McpModeEndToEndTest` 改名 `McpFacadeIntegrationTest`(它是 facade 级装配验证,不是 MCP 协议回环;协议级=BillServerTest/WorkItemServerTest/McpAuthTest);README 不再维护硬编码测试计数。
+
 - **M1(2026-09-22 完成)**:计划 `docs/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
 - **M5(2026-09-23 完成)**:计划 `docs/plans/2026-09-23-m5-production.md`;docker/`Dockerfile`(maven 构建层 → temurin-21-jre + curl 运行层,web.jar 与 mcp.jar 双构件)、`docker-compose.yml`(7 服务:nginx ip_hash/max_fails/proxy_next_upstream/Host 透传/X-Real-IP;PG 5433 与 Redis 6380 仅本机;profile 选择 MCP server)、`docker/nginx.conf`、`.github/workflows/ci.yml`(mvn verify + 对抗报告 artifact)。运维:启停 `docker compose up -d / down / down -v`;备份 `docker compose exec -T postgres pg_dump -U billguard billguard > backup.sql`;故障转移演练 `docker compose kill web-1`;扩容 = 加 web-N + nginx upstream 一行。
 - **M4(2026-09-23 完成)**:计划 `docs/plans/2026-09-23-m4-probes.md`;新增 `billguard-eval` 模块 —— 25 条对抗探针(adv-001..025)全量平移并全绿(26 项含目录校验),分布在三个探针类:引擎级 9(EngineProbesTest)、审批/门禁 9(ApprovalProbesTest)、身份/隔离/HTTP 7(WebProbesTest,含真实 MockMvc 的登录暴破/CSRF/路径穿越);`AdversarialCatalog` 保存逐字目录(id/类别/严重度/标题/攻击/期望/修复建议)并生成报告(evaluations/adversarial-v1-report.json);adv-020(文档沙箱)以静态资源路径边界等价验证并记录于目录。

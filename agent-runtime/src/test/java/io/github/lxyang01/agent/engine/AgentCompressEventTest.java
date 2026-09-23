@@ -118,7 +118,9 @@ class AgentCompressEventTest {
     void hooks_and_trace_both_receive_events() {
         java.util.List<String> seen = new java.util.ArrayList<>();
         var llm = new io.github.lxyang01.agent.testing.FinalLlm("收到");
-        var runtime = harness.builder(spec, llm).hook(event -> {
+        var runtime = harness.builder(spec, llm)
+            .approvals(new io.github.lxyang01.agent.testing.InMemoryApprovalStore())
+            .hook(event -> {
             seen.add(event.eventType());
             if (event.eventType().equals(RunEvents.MODEL_START)) {
                 throw new IllegalStateException("hook 故障必须被吞没");

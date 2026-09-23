@@ -138,7 +138,8 @@ class AgentRuntimeTest {
             Map.of("tool_call", Map.of("name", "bill.aggregate", "arguments", Map.of())),
             Map.of("final", "## 支出事实\n总 100"),                             // 缺章节 → output_contract_blocked
             Map.of("final", "## 支出事实\n总 100\n## 异常清单\n无\n## 根因推测\n无\n## 行动计划\n无"));
-        var runtime = harness.builder(spec, llm).skills(skills).build();
+        var runtime = harness.builder(spec, llm).skills(skills)
+            .approvals(new io.github.lxyang01.agent.testing.InMemoryApprovalStore()).build();
         var response = runtime.run("s1", "给我一份守卫报告");
         assertThat(response.status()).isEqualTo(AgentStatuses.COMPLETED);
         var events = harness.trace.records().stream().map(r -> r.get("event")).toList();

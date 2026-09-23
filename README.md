@@ -48,7 +48,7 @@ billguard-eval      25 条对抗探针 + 目录/报告(确定性,零真实模型
 ## 快速开始
 
 ```bash
-mvn verify                # 全模块:编译 + 单测 + 集成测试(297 项)
+mvn verify                # 全模块:编译 + 单测 + 集成测试(计数见 mvn 输出)
 
 # 集群:
 docker compose up --build -d
@@ -63,6 +63,7 @@ docker compose exec -T web-1 sh -c \
 
 ## 测试体系
 
-- **297 项测试**:内核 149 / 业务域 76 / MCP 6 / Web 42 / 评测 26(含探针目录校验)
+- 分层测试:内核(纯内存,毫秒级)/ 业务域(Testcontainers PG/Redis)/ Web(MockMvc 全过滤器链 + 集成)/ 评测(25 条对抗探针 + 目录校验);计数以 `mvn verify` 输出为准,不在文档里维护影子数字
+- **MCP 协议级回环**:真实 HTTP 起 server + 真客户端 initialize/listTools/callTool(BillServerTest、WorkItemServerTest、McpAuthTest,含认证与 owner 终裁);facade 级集成(McpFacadeIntegrationTest)聚焦 web 侧装配,不起协议服务
 - **25 条对抗探针**(adv-001..025):提示注入/伪造身份/并发双提交/跨租户窃取/CSRF/暴力破解/路径穿越/资源预算 —— 全部确定性(剧本模型替身,零真实 Key、零网络),失败即运行时控制缺口而非模型分数
 - Testcontainers:PG/Redis 随测随起;MockMvc 走真实 Security 过滤器链

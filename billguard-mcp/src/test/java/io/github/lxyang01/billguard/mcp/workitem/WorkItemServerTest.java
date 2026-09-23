@@ -40,16 +40,18 @@ class WorkItemServerTest {
         registry.add("spring.datasource.url", PG::getJdbcUrl);
         registry.add("spring.datasource.username", PG::getUsername);
         registry.add("spring.datasource.password", PG::getPassword);
+        registry.add("BILLGUARD_MCP_API_KEY", () -> "test-key");
     }
 
     @Autowired PgWorkItemStore store;
     @LocalServerPort int port;
 
     private McpSyncClient connect() {
-        McpSyncClient client = McpClient.sync(
-                HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
-                    .endpoint("/mcp")
-                    .build())
+        var transport = HttpClientStreamableHttpTransport.builder(
+                "http://localhost:" + port).endpoint("/mcp");
+        transport.customizeRequest(request ->
+            request.header("X-BillGuard-Api-Key", "test-key"));
+        McpSyncClient client = McpClient.sync(transport.build())
             .requestTimeout(Duration.ofSeconds(20))
             .capabilities(ClientCapabilities.builder().build())
             .build();

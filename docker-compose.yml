@@ -33,6 +33,8 @@ services:
       BILLGUARD_PG_PASSWORD: billguard
       BILLGUARD_REDIS_URL: redis://redis:6379/0
       SPRING_DATA_REDIS_URL: redis://redis:6379/0
+      # MCP 服务间共享密钥:server 端校验,web 端携带;未设置时默认值兜底(fail-closed 于过滤器)
+      BILLGUARD_MCP_API_KEY: ${BILLGUARD_MCP_API_KEY:-local-dev-mcp-key}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://127.0.0.1:8010/health"]

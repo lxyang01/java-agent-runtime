@@ -103,12 +103,54 @@ public final class McpClientManager implements AutoCloseable {
             circuitCooldownSeconds, halfOpenExpirySeconds, null);
     }
 
+    /** 每次调用的调用方身份(header 注入在请求构建期读取;OwnerIdentity 写入)。 */
+    static final ThreadLocal<String> CALL_OWNER = new ThreadLocal<>();
+
+    /** 以指定身份执行一次调用(作用域结束自动清空,线程归还线程池不串号)。 */
+    public static <T> T withOwner(String owner, java.util.function.Supplier<T> call) {
+        CALL_OWNER.set(owner == null || owner.isBlank() ? null : owner);
+        try {
+            return call.get();
+        } finally {
+            CALL_OWNER.remove();
+        }
+    }
+
+    /** OwnerIdentity 的受检异常友好形态(显式开闭作用域)。 */
+    public static void beginOwnerScope(String owner) {
+        CALL_OWNER.set(owner == null || owner.isBlank() ? null : owner);
+    }
+
+    public static void endOwnerScope() {
+        CALL_OWNER.remove();
+    }
+
     private static ConnectionFactory defaultFactory(Duration requestTimeout) {
         return url -> McpClient.sync(
                 HttpClientStreamableHttpTransport.builder(url).endpoint("/mcp").build())
             .requestTimeout(requestTimeout)
             .capabilities(ClientCapabilities.builder().build())
             .build();
+    }
+
+    /** 生产工厂:每个请求头携带服务 API Key + 当前调用身份(服务端裁定租户)。 */
+    public static ConnectionFactory securedFactory(Duration requestTimeout, String apiKey) {
+        return url -> {
+            var builder = HttpClientStreamableHttpTransport.builder(url).endpoint("/mcp");
+            builder.customizeRequest(request -> {
+                if (apiKey != null && !apiKey.isBlank()) {
+                    request.header("X-BillGuard-Api-Key", apiKey);
+                }
+                String owner = CALL_OWNER.get();
+                if (owner != null) {
+                    request.header("X-BillGuard-Owner", owner);
+                }
+            });
+            return McpClient.sync(builder.build())
+                .requestTimeout(requestTimeout)
+                .capabilities(ClientCapabilities.builder().build())
+                .build();
+        };
     }
 
     private ConnectionFactory factory() {

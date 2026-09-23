@@ -86,7 +86,8 @@ class BillGuardFacadeTest extends PgTestBase {
         var spec = AgentSpec.builder("demo", "i",
             List.of("demo.read", "demo.write")).build();
         return AgentRuntime.builder(spec, llm, tools,
-            new PgConversationStore(jdbc), traceWriter()).build();
+            new PgConversationStore(jdbc), traceWriter())
+            .approvals(new PgApprovalStore(jdbc)).build();
     }
 
     private io.github.lxyang01.agent.store.TraceWriter traceWriter() {

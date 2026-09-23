@@ -36,11 +36,14 @@ class BillServerTest {
     @Container
     static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine");
 
+    static final String API_KEY = "test-key";
+
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", PG::getJdbcUrl);
         registry.add("spring.datasource.username", PG::getUsername);
         registry.add("spring.datasource.password", PG::getPassword);
+        registry.add("BILLGUARD_MCP_API_KEY", () -> API_KEY);
     }
 
     @LocalServerPort int port;
@@ -70,10 +73,17 @@ class BillServerTest {
             "正常", "2026-03-04 00:00:00+00:00", owner);
     }
 
-    private McpSyncClient connect() {
-        McpSyncClient client = McpClient.sync(
-                HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
-                    .endpoint("/mcp").build())
+    /** 与生产客户端同构:密钥必带;owner 头存在时由服务端终裁身份,参数 owner 仅兜底。 */
+    private McpSyncClient connect(String owner) {
+        var transport = HttpClientStreamableHttpTransport.builder(
+                "http://localhost:" + port).endpoint("/mcp");
+        transport.customizeRequest(request -> {
+            request.header("X-BillGuard-Api-Key", API_KEY);
+            if (owner != null) {
+                request.header("X-BillGuard-Owner", owner);
+            }
+        });
+        McpSyncClient client = McpClient.sync(transport.build())
             .requestTimeout(Duration.ofSeconds(20))
             .capabilities(ClientCapabilities.builder().build())
             .build();
@@ -91,7 +101,7 @@ class BillServerTest {
 
     @Test
     void catalog_policies_and_capabilities() {
-        try (McpSyncClient client = connect()) {
+        try (McpSyncClient client = connect("alice")) {
             ListToolsResult tools = client.listTools();
             assertThat(tools.tools()).extracting(Tool::name).containsExactlyInAnyOrder(
                 "aggregate", "query", "compare_periods", "detect_anomalies", "get_samples",
@@ -109,11 +119,15 @@ class BillServerTest {
 
     @Test
     void aggregate_respects_owner_boundary() {
-        try (McpSyncClient client = connect()) {
-            var alice = call(client, "aggregate", Map.of("owner", "alice"));
-            assertThat(((Number) alice.get("count")).longValue()).isEqualTo(2L);
-            var bob = call(client, "aggregate", Map.of("owner", "bob"));
-            assertThat(((Number) bob.get("count")).longValue()).isEqualTo(1L);
+        try (McpSyncClient alice = connect("alice");
+             McpSyncClient bob = connect("bob")) {
+            // 参数故意串号:服务端以认证头为准,bob 只能数到 bob 的行
+            assertThat(((Number) call(alice, "aggregate", Map.of("owner", "bob"))
+                .get("count")).longValue()).isEqualTo(2L);
+            assertThat(((Number) call(bob, "aggregate", Map.of("owner", "alice"))
+                .get("count")).longValue()).isEqualTo(1L);
+        }
+        try (McpSyncClient client = connect(null)) {
             var legacy = call(client, "aggregate", Map.of());
             assertThat(((Number) legacy.get("count")).longValue()).isZero();   // 空 owner = 仅存量 NULL 行
         }
@@ -121,7 +135,7 @@ class BillServerTest {
 
     @Test
     void query_masks_pii_and_update_status_writes() {
-        try (McpSyncClient client = connect()) {
+        try (McpSyncClient client = connect("alice")) {
             var result = call(client, "query",
                 Map.of("owner", "alice", "merchant", "美团"));
             assertThat(result.get("pii_masked")).isEqualTo(true);
@@ -143,7 +157,7 @@ class BillServerTest {
 
     @Test
     void samples_retry_hint_passthrough() {
-        try (McpSyncClient client = connect()) {
+        try (McpSyncClient client = connect("alice")) {
             var empty = call(client, "get_samples",
                 Map.of("owner", "alice", "query", "完全不存在"));
             assertThat(empty.get("matched")).isEqualTo(0);

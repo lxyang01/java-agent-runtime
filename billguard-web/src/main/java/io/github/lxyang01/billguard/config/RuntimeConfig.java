@@ -108,9 +108,12 @@ public class RuntimeConfig {
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty("billguard.mcp.enabled")
     public io.github.lxyang01.billguard.mcp.McpClientManager mcpClientManager(
         @Value("${BILLGUARD_BILL_MCP_URL}") String billUrl,
-        @Value("${BILLGUARD_WORK_ITEM_MCP_URL}") String workItemUrl) {
+        @Value("${BILLGUARD_WORK_ITEM_MCP_URL}") String workItemUrl,
+        @Value("${BILLGUARD_MCP_API_KEY:}") String apiKey) {
         var manager = new io.github.lxyang01.billguard.mcp.McpClientManager(
-            java.time.Duration.ofSeconds(20), null);
+            java.time.Duration.ofSeconds(20), null,
+            io.github.lxyang01.billguard.mcp.McpClientManager
+                .securedFactory(java.time.Duration.ofSeconds(20), apiKey));
         manager.connectStreamableHttp("bill", billUrl);
         manager.connectStreamableHttp("work-items", workItemUrl);
         return manager;

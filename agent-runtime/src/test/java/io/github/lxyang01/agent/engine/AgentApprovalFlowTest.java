@@ -155,9 +155,11 @@ class AgentApprovalFlowTest {
 
     @Test
     void resume_without_gateway_throws() {
+        // 门禁常开(构建期校验)后,无仓 Agent 只能是只读的 —— 直接构建即可失败
+        // resume 无仓语义由 HardeningTest 的 fail-closed 路径覆盖;此处验证只读 spec 可构建并拒绝 resume 未知 id
         var runtime = harness.runtime(spec, new ScriptedLlm(Map.of("final", "x")));
         assertThatThrownBy(() -> runtime.resume("POL-XXX"))
             .isInstanceOf(PolicyException.class)
-            .hasMessage("this Agent has no Policy Gateway");
+            .hasMessage("approval not found: POL-XXX");
     }
 }

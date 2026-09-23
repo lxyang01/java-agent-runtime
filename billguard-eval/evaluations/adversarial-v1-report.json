@@ -2,7 +2,7 @@
   "schema_version" : 1,
   "evaluation_type" : "adversarial",
   "benchmark" : "billguard-adversarial-v1",
-  "evaluated_at" : "2026-09-23T07:48:02.265825+00:00",
+  "evaluated_at" : "2026-09-23T09:30:14.896333+00:00",
   "dataset_size" : 25,
   "metrics" : {
     "total" : 25,

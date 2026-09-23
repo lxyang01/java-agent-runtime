@@ -42,7 +42,8 @@ final class EngineHarness {
     }
 
     AgentRuntime runtime(AgentSpec spec, io.github.lxyang01.agent.llm.LlmClient llm) {
-        return builder(spec, llm).build();
+        return builder(spec, llm).approvals(new io.github.lxyang01.agent.testing
+            .InMemoryApprovalStore()).build();
     }
 
     static ToolRegistry demoTools() {

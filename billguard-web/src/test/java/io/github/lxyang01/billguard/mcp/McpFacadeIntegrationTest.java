@@ -38,12 +38,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * MCP 模式端到端:真实起两个 MCP server(随机端口)+ 真实客户端管理器 +
- * ScriptedLlm 驱动的 chat,验证 owner 注入隔离、commit_issue 双闸与卡片补全。
+ * MCP 模式 facade 级集成(非协议回环):不起 MCP server,聚焦 web 侧装配 ——
+ * 客户端管理器注册、owner 身份注入、Facade 的 commit_issue 双闸与卡片补全。
+ * 协议级行为(真 HTTP server + 真客户端 initialize/callTool)由 MCP 模块的
+ * BillServerTest / WorkItemServerTest / McpAuthTest 覆盖。
  */
 @Testcontainers(disabledWithoutDocker = true)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class McpModeEndToEndTest {
+class McpFacadeIntegrationTest {
 
     @Container
     static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine");

@@ -61,19 +61,36 @@ public class BillServerConfig {
         this.anomalies = anomalies;
     }
 
-    /** scoped_or_legacy:空 owner → 仅存量 NULL 行;非空 → 播种默认类别 + 本人视图。 */
-    private String scope(Map<String, Object> arguments) {
-        Object owner = arguments.get("owner");
-        String value = owner == null ? "" : String.valueOf(owner);
+    /**
+     * 服务端租户裁定:认证头携带的 owner(经 McpAuthFilter 校验的调用方身份)
+     * 永远优先于工具参数中的 owner —— 客户端传入的 owner 不可信,被静默覆盖。
+     * 两者皆缺 = 仅存量 NULL 行(本地直连形态)。
+     */
+    private String scope(io.modelcontextprotocol.common.McpTransportContext ctx,
+                        Map<String, Object> arguments) {
+        Object authenticated = ctx == null ? null : ctx.get(CTX_OWNER);
+        String value = authenticated != null ? String.valueOf(authenticated)
+            : (arguments.get("owner") == null ? "" : String.valueOf(arguments.get("owner")));
         if (!value.isEmpty()) {
             bills.ensureUserCategories(value);
         }
         return value;
     }
 
+    public static final String CTX_OWNER = "billguard.owner";
+
     @Bean
     public WebMvcStatelessServerTransport billTransport() {
-        return WebMvcStatelessServerTransport.builder().messageEndpoint("/mcp").build();
+        return WebMvcStatelessServerTransport.builder().messageEndpoint("/mcp")
+            .contextExtractor((io.modelcontextprotocol.server.McpTransportContextExtractor<
+                    org.springframework.web.servlet.function.ServerRequest>) request -> {
+                String owner = request.headers().firstHeader(
+                    io.github.lxyang01.billguard.mcp.McpAuthFilter.OWNER_HEADER);
+                return io.modelcontextprotocol.common.McpTransportContext.create(
+                    owner == null || owner.isBlank() ? Map.of()
+                        : Map.of(CTX_OWNER, owner.strip()));
+            })
+            .build();
     }
 
     @Bean
@@ -91,7 +108,7 @@ public class BillServerConfig {
                     "聚合账单总金额、笔数、待核查数量、日均支出、类别分布和高频商户。",
                     filterProps(),
                     (ctx, request) -> structured(bills.overview(
-                        filters(request.arguments()), scope(request.arguments())))),
+                        filters(request.arguments()), scope(ctx, request.arguments() == null ? Map.of() : request.arguments())))),
                 tool("query", READ_ONLY, null,
                     "按时间、类别、商户、金额区间或关键词查询最多 50 条脱敏交易;关键词同时匹配交易编号、商户、备注和类别。",
                     withLimit(filterProps(), 1, 50, 20),
@@ -99,7 +116,7 @@ public class BillServerConfig {
                         Map<String, Object> result = bills.query(
                             filters(request.arguments()), 1,
                             clamp(optInt(request.arguments(), "limit", 20), 1, 50),
-                            scope(request.arguments()));
+                            scope(ctx, request.arguments() == null ? Map.of() : request.arguments()));
                         return structured(masked(result));
                     }),
                 tool("compare_periods", READ_ONLY, null,
@@ -108,7 +125,7 @@ public class BillServerConfig {
                     (ctx, request) -> {
                         int days = optInt(request.arguments(), "days", 7);
                         requireRange("days", days, 1, 365);
-                        return structured(bills.compare(days, scope(request.arguments())));
+                        return structured(bills.compare(days, scope(ctx, request.arguments() == null ? Map.of() : request.arguments())));
                     }),
                 tool("detect_anomalies", READ_ONLY, null,
                     "识别四类账单异常:类别激增、疑似重复扣费、订阅涨价和大额离群。",
@@ -122,7 +139,7 @@ public class BillServerConfig {
                         requireRange("limit", limit, 1, 50);
                         return structured(anomalies.anomalies(days,
                             optString(request.arguments(), "dimension", "spike"), limit,
-                            scope(request.arguments())));
+                            scope(ctx, request.arguments() == null ? Map.of() : request.arguments())));
                     }),
                 tool("get_samples", READ_ONLY, null,
                     "读取最多 20 条已脱敏代表性交易;具体问题优先传 merchant,其次 category,零结果时按 retry_hint 放宽一次查询。",
@@ -135,7 +152,7 @@ public class BillServerConfig {
                     (ctx, request) -> {
                         int limit = optInt(request.arguments(), "limit", 10);
                         requireRange("limit", limit, 1, 20);
-                        return structured(samples(request.arguments()));
+                        return structured(samples(ctx, request.arguments() == null ? Map.of() : request.arguments()));
                     }),
                 tool("update_status", WRITE,
                     Map.of("risk_level", "high_write", "requires_approval", true,
@@ -157,7 +174,7 @@ public class BillServerConfig {
                         return structured(bills.updateWorkflow(txIds, operator.strip(),
                             optString(request.arguments(), "status", "正常"),
                             optString(request.arguments(), "note", ""),
-                            scope(request.arguments())));
+                            scope(ctx, request.arguments() == null ? Map.of() : request.arguments())));
                     }))
             .resources(
                 new SyncResourceSpecification(
@@ -235,8 +252,9 @@ public class BillServerConfig {
 
     /** samples:检索优先级 商户精确 > 类别 > 关键词(对齐 bills.py samples)。 */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> samples(Map<String, Object> arguments) {
-        String owner = scope(arguments);
+    private Map<String, Object> samples(io.modelcontextprotocol.common.McpTransportContext ctx,
+                                        Map<String, Object> arguments) {
+        String owner = scope(ctx, arguments);
         String merchant = optString(arguments, "merchant");
         String category = optString(arguments, "category");
         BillFilters filters = merchant != null
