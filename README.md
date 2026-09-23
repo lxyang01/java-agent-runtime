@@ -1,6 +1,6 @@
 # BillGuard Java Agent Runtime
 
-[![CI](https://github.com/lxyang01/billguard-java/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/lxyang01/java-agent-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/lxyang01/java-agent-runtime/actions/workflows/ci.yml)
 
 可审计账单守卫 Agent 的 **Java 工程化实现**。项目定位:一个通用的可审计 **Agent Runtime**(引擎/策略门禁/护栏/技能路由/三阶段审批状态机),BillGuard 账单域是跑在其上的第一个业务载体。
 
