@@ -13,6 +13,7 @@
 
   <modules>
     <module>agent-runtime</module>
+    <module>billguard-domain</module>
     <module>billguard-web</module>
   </modules>
 
@@ -70,6 +71,11 @@
       <dependency>
         <groupId>io.github.lxyang01</groupId>
         <artifactId>agent-runtime</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.lxyang01</groupId>
+        <artifactId>billguard-domain</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

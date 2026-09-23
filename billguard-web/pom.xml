@@ -19,6 +19,17 @@
       <groupId>io.github.lxyang01</groupId>
       <artifactId>agent-runtime</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.github.lxyang01</groupId>
+      <artifactId>billguard-domain</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.github.lxyang01</groupId>
+      <artifactId>billguard-domain</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -37,19 +48,6 @@
       <artifactId>spring-ai-starter-model-openai</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-actuator</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-csv</artifactId>
-      <version>1.11.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
     </dependency>
@@ -58,9 +56,12 @@
       <artifactId>flyway-database-postgresql</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <!-- compile:PgJson 直接使用 PGobject 做 JSONB 绑定 -->
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
     </dependency>
 
     <dependency>
