@@ -111,7 +111,7 @@ public final class BillRepository {
         for (Map<String, Object> item : items) {
             Map<String, Object> copy = new LinkedHashMap<>(item);
             copy.put("note", BillPii.mask(String.valueOf(item.getOrDefault("note", ""))).text());
-            copy.put("amount", asDouble(item.get("amount")));
+            copy.put("amount", money(item.get("amount")));
             masked.add(copy);
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -180,7 +180,7 @@ public final class BillRepository {
             String.class, ownerParams.toArray());
 
         long count = ((Number) row.get("count")).longValue();
-        double totalAmount = asDouble(row.get("total_amount"));
+        BigDecimal totalAmount = money(row.get("total_amount"));
         long activeDays = ((Number) row.get("active_days")).longValue();
         String dataNote = null;
         if (count == 0) {
@@ -196,10 +196,13 @@ public final class BillRepository {
         options.put("methods", methods);
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("total_amount", round2(totalAmount));
+        result.put("total_amount", totalAmount.setScale(2, RoundingMode.HALF_EVEN).stripTrailingZeros());
         result.put("count", count);
         result.put("pending", pending == null ? 0 : pending);
-        result.put("avg_daily", activeDays > 0 ? round2(totalAmount / activeDays) : 0.0);
+        result.put("avg_daily", activeDays > 0
+            ? totalAmount.divide(BigDecimal.valueOf(activeDays), 2, RoundingMode.HALF_EVEN)
+                .stripTrailingZeros()
+            : BigDecimal.ZERO);
         // 空结果集时为 null:给模型日期锚点,避免编造年份/区间
         result.put("data_from", row.get("data_from"));
         result.put("data_to", row.get("data_to"));
@@ -231,36 +234,42 @@ public final class BillRepository {
         Map<String, Object> previous = overview(new BillFilters(previousStart.toString(),
             previousEnd.toString(), "", "", "", "", null, null, ""), owner);
 
-        double currentTotal = asDouble(current.get("total_amount"));
-        double previousTotal = asDouble(previous.get("total_amount"));
-        Double change = previousTotal == 0 ? null
-            : round((currentTotal - previousTotal) / previousTotal * 100, 1);
+        BigDecimal currentTotal = money(current.get("total_amount"));
+        BigDecimal previousTotal = money(previous.get("total_amount"));
+        BigDecimal change = previousTotal.signum() == 0 ? null
+            : currentTotal.subtract(previousTotal)
+                .divide(previousTotal, 4, RoundingMode.HALF_EVEN)
+                .multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_EVEN);
 
-        Map<String, double[]> merged = new LinkedHashMap<>();
+        Map<String, BigDecimal[]> merged = new LinkedHashMap<>();
         for (Object item : (List<?>) current.get("by_category")) {
             Map<?, ?> row = (Map<?, ?>) item;
             merged.computeIfAbsent(String.valueOf(row.get("name")),
-                k -> new double[]{0.0, 0.0})[0] = asDouble(row.get("amount"));
+                k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO})[0] =
+                money(row.get("amount"));
         }
         for (Object item : (List<?>) previous.get("by_category")) {
             Map<?, ?> row = (Map<?, ?>) item;
             merged.computeIfAbsent(String.valueOf(row.get("name")),
-                k -> new double[]{0.0, 0.0})[1] = asDouble(row.get("amount"));
+                k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO})[1] =
+                money(row.get("amount"));
         }
         List<Map<String, Object>> byCategory = new ArrayList<>();
-        for (Map.Entry<String, double[]> entry : merged.entrySet()) {
-            double currentAmount = entry.getValue()[0];
-            double previousAmount = entry.getValue()[1];
+        for (Map.Entry<String, BigDecimal[]> entry : merged.entrySet()) {
+            BigDecimal currentAmount = entry.getValue()[0];
+            BigDecimal previousAmount = entry.getValue()[1];
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("name", entry.getKey());
-            row.put("current", round2(currentAmount));
-            row.put("previous", round2(previousAmount));
-            row.put("change_percent", previousAmount == 0 ? null
-                : round((currentAmount - previousAmount) / previousAmount * 100, 1));
+            row.put("current", currentAmount.setScale(2, RoundingMode.HALF_EVEN).stripTrailingZeros());
+            row.put("previous", previousAmount.setScale(2, RoundingMode.HALF_EVEN).stripTrailingZeros());
+            row.put("change_percent", previousAmount.signum() == 0 ? null
+                : currentAmount.subtract(previousAmount)
+                    .divide(previousAmount, 4, RoundingMode.HALF_EVEN)
+                    .multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_EVEN));
             byCategory.add(row);
         }
         byCategory.sort((a, b) -> {
-            int byAmount = Double.compare(asDouble(b.get("current")), asDouble(a.get("current")));
+            int byAmount = money(b.get("current")).compareTo(money(a.get("current")));
             return byAmount != 0 ? byAmount
                 : String.valueOf(a.get("name")).compareTo(String.valueOf(b.get("name")));
         });
@@ -308,7 +317,7 @@ public final class BillRepository {
                     + "created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                     + "ON CONFLICT (COALESCE(owner, ''), tx_id) DO NOTHING",
                 row.txId(), row.paidAt(), row.merchant(), row.note(),
-                BigDecimal.valueOf(row.amount()), row.method(), now, owner);
+                row.amount(), row.method(), now, owner);
             if (inserted == 0) {
                 duplicates++;
                 continue;
@@ -347,7 +356,7 @@ public final class BillRepository {
             }
             jdbc.update("INSERT INTO subscriptions(name, merchant, cycle, expected_amount, "
                     + "created_at, owner) VALUES (?, ?, ?, ?, ?, ?)",
-                row.name(), row.merchant(), row.cycle(), BigDecimal.valueOf(row.expectedAmount()),
+                row.name(), row.merchant(), row.cycle(), row.expectedAmount(),
                 now, owner);
             imported++;
         }
@@ -814,7 +823,7 @@ public final class BillRepository {
         for (Map<String, Object> row : rows) {
             Map<String, Object> item = new LinkedHashMap<>(row);
             item.put("active", Boolean.TRUE.equals(row.get("active")));
-            item.put("expected_amount", asDouble(row.get("expected_amount")));
+            item.put("expected_amount", money(row.get("expected_amount")));
             result.add(item);
         }
         return result;
@@ -918,7 +927,7 @@ public final class BillRepository {
             List<String> cells = List.of(
                 csv(String.valueOf(row.get("tx_id"))), csv(String.valueOf(row.get("paid_at"))),
                 csv(String.valueOf(row.get("merchant"))), csv(String.valueOf(row.get("category"))),
-                csv(String.valueOf(asDouble(row.get("amount")))),
+                csv(String.valueOf(money(row.get("amount")))),
                 csv(String.valueOf(row.get("method"))), csv(String.valueOf(row.get("note"))));
             sb.append(String.join(",", cells)).append("\n");
         }
@@ -961,22 +970,14 @@ public final class BillRepository {
     // ---- 数值规整 ----
 
 
-    static double asDouble(Object value) {
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
+    /** 金额统一 BigDecimal(PG NUMERIC → JDBC BigDecimal 已直配;防御数值型转换)。 */
+    static BigDecimal money(Object value) {
         if (value instanceof BigDecimal decimal) {
-            return decimal.doubleValue();
+            return decimal;
         }
-        return 0.0;
-    }
-
-    /** round(x, 2)(HALF_EVEN)。 */
-    static double round2(double value) {
-        return round(value, 2);
-    }
-
-    static double round(double value, int scale) {
-        return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_EVEN).doubleValue();
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(String.valueOf(value == null ? "0" : value));
     }
 }

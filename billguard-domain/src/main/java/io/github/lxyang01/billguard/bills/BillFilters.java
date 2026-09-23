@@ -2,6 +2,7 @@ package io.github.lxyang01.billguard.bills;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.math.BigDecimal;
 import java.util.Set;
 
 /** 交易筛选条件(字段与 BillFilters 一致)。 */
@@ -12,8 +13,8 @@ public record BillFilters(
     String merchant,
     String method,
     String status,
-    Double minAmount,
-    Double maxAmount,
+    BigDecimal minAmount,
+    BigDecimal maxAmount,
     String query) {
 
     public static final BillFilters EMPTY = new BillFilters("", "", "", "", "", "", null,
@@ -37,8 +38,8 @@ public record BillFilters(
             text(picked.get("date_from")), text(picked.get("date_to")),
             text(picked.get("category")), text(picked.get("merchant")),
             text(picked.get("method")), text(picked.get("status")),
-            picked.get("min_amount") instanceof Number n ? n.doubleValue() : null,
-            picked.get("max_amount") instanceof Number n ? n.doubleValue() : null,
+            picked.get("min_amount") instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null,
+            picked.get("max_amount") instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null,
             text(picked.get("query")));
     }
 

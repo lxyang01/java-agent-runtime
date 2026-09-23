@@ -289,8 +289,8 @@ public class BillServerConfig {
             optString(arguments, "date_to", ""), optString(arguments, "category", ""),
             optString(arguments, "merchant", ""), optString(arguments, "method", ""),
             optString(arguments, "status", ""),
-            arguments.get("min_amount") instanceof Number n ? n.doubleValue() : null,
-            arguments.get("max_amount") instanceof Number n ? n.doubleValue() : null,
+            arguments.get("min_amount") instanceof Number n ? java.math.BigDecimal.valueOf(n.doubleValue()) : null,
+            arguments.get("max_amount") instanceof Number n ? java.math.BigDecimal.valueOf(n.doubleValue()) : null,
             optString(arguments, "query", ""));
     }
 

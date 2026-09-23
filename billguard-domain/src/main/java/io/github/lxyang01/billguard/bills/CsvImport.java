@@ -1,6 +1,7 @@
 package io.github.lxyang01.billguard.bills;
 
 import java.io.StringReader;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,10 +46,10 @@ public final class CsvImport {
     private CsvImport() {}
 
     public record BillRow(String txId, String paidAt, String merchant, String note,
-                          double amount, String method, String categoryName) {}
+                          BigDecimal amount, String method, String categoryName) {}
 
     public record SubscriptionRow(String name, String merchant, String cycle,
-                                  double expectedAmount) {}
+                                  BigDecimal expectedAmount) {}
 
     public record ParseResult<T>(List<T> rows, int total, List<String> errors,
                                  List<String> headers) {
@@ -87,7 +88,7 @@ public final class CsvImport {
                         throw new IllegalArgumentException("交易编号或商户为空");
                     }
                     String paidAt = normalizeDatetime(value(record, columns, "paid_at"));
-                    double amount = Double.parseDouble(value(record, columns, "amount"));
+                    BigDecimal amount = new BigDecimal(value(record, columns, "amount").strip());
                     String method = columns.containsKey("method")
                         ? orDefault(value(record, columns, "method"), "未知") : "未知";
                     String note = columns.containsKey("note")
@@ -135,8 +136,8 @@ public final class CsvImport {
                     if (name.isEmpty() || merchant.isEmpty()) {
                         throw new IllegalArgumentException("订阅名称或商户为空");
                     }
-                    double expected = Double.parseDouble(value(record, columns,
-                        "expected_amount"));
+                    BigDecimal expected = new BigDecimal(value(record, columns,
+                        "expected_amount").strip());
                     String cycle = columns.containsKey("cycle")
                         ? orDefault(value(record, columns, "cycle"), "月") : "月";
                     if (!"月".equals(cycle) && !"年".equals(cycle)) {

@@ -68,7 +68,7 @@ class BillToolsTest extends PgTestBase {
         // overview 只统计本人
         Map<?, ?> overview = (Map<?, ?>) registry.execute("bill_overview", Map.of(), null);
         assertThat(overview.get("count")).isEqualTo(1L);
-        assertThat(overview.get("total_amount")).isEqualTo(35.5);
+        assertThat(((Number) overview.get("total_amount")).doubleValue()).isEqualTo(35.5);
     }
 
     @Test

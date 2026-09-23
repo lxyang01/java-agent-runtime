@@ -22,12 +22,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public final class BillAnomalies {
 
     public static final int DUPLICATE_WINDOW_DAYS = 3;
-    public static final double SPIKE_RATIO = 2;
-    public static final double SPIKE_MIN = 100;
-    public static final double OUTLIER_MIN = 200;
-    public static final double OUTLIER_RATIO = 5;
-    public static final double HIKE_MIN_ABS = 1;
-    public static final double HIKE_RATIO = 0.2;
+    public static final java.math.BigDecimal SPIKE_RATIO = new java.math.BigDecimal("2");
+    public static final java.math.BigDecimal SPIKE_MIN = new java.math.BigDecimal("100");
+    public static final java.math.BigDecimal OUTLIER_MIN = new java.math.BigDecimal("200");
+    public static final java.math.BigDecimal OUTLIER_RATIO = new java.math.BigDecimal("5");
+    public static final java.math.BigDecimal HIKE_MIN_ABS = new java.math.BigDecimal("1");
+    public static final java.math.BigDecimal HIKE_RATIO = new java.math.BigDecimal("0.2");
 
     private static final Set<String> DIMENSIONS =
         Set.of("spike", "duplicate", "price_hike", "outlier");
@@ -105,20 +105,21 @@ public final class BillAnomalies {
     private void spike(int days, String owner, List<Map<String, Object>> items) {
         for (Object rowObj : (List<?>) bills.compare(days, owner).get("by_category")) {
             Map<String, Object> row = (Map<String, Object>) rowObj;
-            double current = BillRepository.asDouble(row.get("current"));
-            double previous = BillRepository.asDouble(row.get("previous"));
-            if (current >= SPIKE_MIN && current >= previous * SPIKE_RATIO) {
+            java.math.BigDecimal current = BillRepository.money(row.get("current"));
+            java.math.BigDecimal previous = BillRepository.money(row.get("previous"));
+            if (current.compareTo(SPIKE_MIN) >= 0
+                && current.compareTo(previous.multiply(SPIKE_RATIO)) >= 0) {
                 Map<String, Object> evidence = new LinkedHashMap<>();
-                evidence.put("current_amount", current);
-                evidence.put("previous_amount", previous);
+                evidence.put("current_amount", current.stripTrailingZeros());
+                evidence.put("previous_amount", previous.stripTrailingZeros());
                 evidence.put("change_percent", row.get("change_percent"));
                 items.add(item(row.get("name"),
                     "本期 ¥" + gFormat(current) + ",上期 ¥" + gFormat(previous)
                         + ",达到 " + gFormat(SPIKE_RATIO) + " 倍", evidence));
             }
         }
-        items.sort((a, b) -> Double.compare(evidenceDouble(b, "current_amount"),
-            evidenceDouble(a, "current_amount")));
+        items.sort((a, b) -> evidenceMoney(b, "current_amount")
+            .compareTo(evidenceMoney(a, "current_amount")));
     }
 
     private void duplicate(String currentFrom, String currentTo, String owner,
@@ -135,7 +136,8 @@ public final class BillAnomalies {
         Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             String key = row.get("merchant") + "|"
-                + BillRepository.round2(BillRepository.asDouble(row.get("amount")));
+                + BillRepository.money(row.get("amount")).setScale(2,
+                    java.math.RoundingMode.HALF_EVEN).stripTrailingZeros();
             groups.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
         }
         for (List<Map<String, Object>> group : groups.values()) {
@@ -156,11 +158,12 @@ public final class BillAnomalies {
                 ? String.format("%.1f 天", minGap)
                 : String.format("%.0f 分钟", minGap * 1440);
             Map<String, Object> first = group.get(0);
-            double amount = BillRepository.asDouble(first.get("amount"));
+            java.math.BigDecimal amount = BillRepository.money(first.get("amount"));
             Map<String, Object> evidence = new LinkedHashMap<>();
             evidence.put("tx_ids", group.stream().map(r -> r.get("tx_id")).toList());
             evidence.put("dates", group.stream().map(r -> r.get("paid_at")).toList());
-            evidence.put("min_gap_days", BillRepository.round(minGap, 4));
+            evidence.put("min_gap_days", BigDecimal.valueOf(minGap)
+                .setScale(4, java.math.RoundingMode.HALF_EVEN).stripTrailingZeros());
             items.add(item(first.get("merchant") + " ¥" + gFormat(amount),
                 group.size() + " 笔最近间隔 " + gapText, evidence));
         }
@@ -193,24 +196,26 @@ public final class BillAnomalies {
             if (latestTx.isEmpty()) {
                 continue;
             }
-            double expected = BillRepository.asDouble(sub.get("expected_amount"));
-            double actual = BillRepository.asDouble(latestTx.get(0).get("amount"));
-            if (Math.abs(actual - expected) < Math.max(HIKE_MIN_ABS, expected * HIKE_RATIO)) {
+            java.math.BigDecimal expected = BillRepository.money(sub.get("expected_amount"));
+            java.math.BigDecimal actual = BillRepository.money(latestTx.get(0).get("amount"));
+            java.math.BigDecimal tolerance = HIKE_MIN_ABS.max(expected.multiply(HIKE_RATIO));
+            if (actual.subtract(expected).abs().compareTo(tolerance) < 0) {
                 continue;
             }
-            String direction = actual > expected ? "上涨" : "回落";
+            String direction = actual.compareTo(expected) > 0 ? "上涨" : "回落";
             Map<String, Object> evidence = new LinkedHashMap<>();
-            evidence.put("expected_amount", expected);
-            evidence.put("actual_amount", actual);
+            evidence.put("expected_amount", expected.stripTrailingZeros());
+            evidence.put("actual_amount", actual.stripTrailingZeros());
             evidence.put("latest_date", latestTx.get(0).get("paid_at"));
             evidence.put("merchant", sub.get("merchant"));
             items.add(item(sub.get("name"),
                 "预期 ¥" + gFormat(expected) + " 实扣 ¥" + gFormat(actual) + "," + direction,
                 evidence));
         }
-        items.sort((a, b) -> Double.compare(
-            Math.abs(evidenceDouble(b, "actual_amount") - evidenceDouble(b, "expected_amount")),
-            Math.abs(evidenceDouble(a, "actual_amount") - evidenceDouble(a, "expected_amount"))));
+        items.sort((a, b) -> evidenceMoney(b, "actual_amount")
+            .subtract(evidenceMoney(b, "expected_amount")).abs()
+            .compareTo(evidenceMoney(a, "actual_amount")
+                .subtract(evidenceMoney(a, "expected_amount")).abs()));
     }
 
     private void outlier(String currentFrom, String currentTo, String owner,
@@ -226,37 +231,42 @@ public final class BillAnomalies {
                 + "LEFT JOIN categories c ON c.id = t.category_id "
                 + "WHERE substr(t.paid_at, 1, 10) BETWEEN ? AND ?" + ownerAndTx.sql(),
             args.toArray());
-        Map<String, List<Double>> amountsByCategory = new LinkedHashMap<>();
+        Map<String, List<java.math.BigDecimal>> amountsByCategory = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             amountsByCategory.computeIfAbsent(String.valueOf(row.get("category")),
-                k -> new ArrayList<>()).add(BillRepository.asDouble(row.get("amount")));
+                k -> new ArrayList<>()).add(BillRepository.money(row.get("amount")));
         }
         for (Map<String, Object> row : rows) {
-            double amount = BillRepository.asDouble(row.get("amount"));
-            if (amount < OUTLIER_MIN) {
+            java.math.BigDecimal amount = BillRepository.money(row.get("amount"));
+            if (amount.compareTo(OUTLIER_MIN) < 0) {
                 continue;
             }
-            List<Double> values = amountsByCategory.get(String.valueOf(row.get("category")));
-            double categoryMean =
-                values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-            if (amount < categoryMean * OUTLIER_RATIO) {
+            List<java.math.BigDecimal> values = amountsByCategory.get(String.valueOf(row.get("category")));
+            java.math.BigDecimal sum = values.stream().reduce(java.math.BigDecimal.ZERO,
+                java.math.BigDecimal::add);
+            java.math.BigDecimal categoryMean = values.isEmpty() ? java.math.BigDecimal.ZERO
+                : sum.divide(java.math.BigDecimal.valueOf(values.size()), 6,
+                    java.math.RoundingMode.HALF_EVEN);
+            if (amount.compareTo(categoryMean.multiply(OUTLIER_RATIO)) < 0) {
                 continue;
             }
             Map<String, Object> evidence = new LinkedHashMap<>();
             evidence.put("tx_id", row.get("tx_id"));
             evidence.put("category", row.get("category"));
-            evidence.put("amount", amount);
-            evidence.put("category_mean", BillRepository.round2(categoryMean));
+            evidence.put("amount", amount.stripTrailingZeros());
+            evidence.put("category_mean", categoryMean.setScale(2,
+                java.math.RoundingMode.HALF_EVEN).stripTrailingZeros());
             items.add(item(row.get("merchant"),
                 "¥" + gFormat(amount) + " 为类别均值 "
-                    + String.format("%.1f", amount / categoryMean) + " 倍", evidence));
+                    + amount.divide(categoryMean, 1, java.math.RoundingMode.HALF_EVEN)
+                        .stripTrailingZeros().toPlainString() + " 倍", evidence));
         }
-        items.sort((a, b) -> Double.compare(evidenceDouble(b, "amount"),
-            evidenceDouble(a, "amount")));
+        items.sort((a, b) -> evidenceMoney(b, "amount")
+            .compareTo(evidenceMoney(a, "amount")));
     }
 
-    private static double evidenceDouble(Map<String, Object> item, String key) {
-        return BillRepository.asDouble(((Map<String, Object>) item.get("evidence")).get(key));
+    private static java.math.BigDecimal evidenceMoney(Map<String, Object> item, String key) {
+        return BillRepository.money(((Map<String, Object>) item.get("evidence")).get(key));
     }
 
     private static Map<String, Object> item(Object name, String detail,
@@ -288,5 +298,9 @@ public final class BillAnomalies {
             return String.valueOf((long) value);
         }
         return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
+    }
+
+    static String gFormat(java.math.BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 }

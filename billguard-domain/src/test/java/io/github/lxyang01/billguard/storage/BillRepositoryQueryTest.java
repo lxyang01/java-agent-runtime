@@ -90,7 +90,7 @@ class BillRepositoryQueryTest extends PgTestBase {
         var miss = new BillFilters("", "", "", "", "", "", null, null, "不存在的关键词");
         assertThat(bills.query(miss, 1, 50, "alice").get("retry_hint")).asString()
             .startsWith("当前筛选未命中数据");
-        var amountRange = new BillFilters("", "", "", "", "", "", 50.0, 100.0, "");
+        var amountRange = new BillFilters("", "", "", "", "", "", new java.math.BigDecimal("50"), new java.math.BigDecimal("100"), "");
         assertThat(bills.query(amountRange, 1, 50, "alice").get("total")).isEqualTo(1);
         var dateOnly = new BillFilters("2026-03-02", "2026-03-02", "", "", "", "", null, null, "");
         assertThat(bills.query(dateOnly, 1, 50, "alice").get("total")).isEqualTo(2);
@@ -109,7 +109,7 @@ class BillRepositoryQueryTest extends PgTestBase {
     @Test
     void overview_aggregates_and_scopes() {
         Map<String, Object> alice = bills.overview(BillFilters.EMPTY, "alice");
-        assertThat(alice.get("total_amount")).isEqualTo(335.30);
+        assertThat(((Number) alice.get("total_amount")).doubleValue()).isEqualTo(335.30);
         assertThat(alice.get("count")).isEqualTo(4L);
         assertThat(alice.get("pending")).isEqualTo(1);
         assertThat((String) alice.get("data_from")).isEqualTo("2026-02-28");
@@ -119,8 +119,8 @@ class BillRepositoryQueryTest extends PgTestBase {
             .get("by_category");
         // 未分类(京东 199)金额最大排首位;餐饮 124.30 次之
         assertThat(byCategory.get(0)).containsEntry("name", "未分类");
-        assertThat(byCategory.get(1)).containsEntry("name", "餐饮")
-            .containsEntry("amount", new java.math.BigDecimal("124.30"));
+        assertThat(byCategory.get(1)).containsEntry("name", "餐饮");
+        assertThat(((Number) byCategory.get(1).get("amount")).doubleValue()).isEqualTo(124.30);
         Map<String, Object> options = (Map<String, Object>) alice.get("options");
         assertThat((List<String>) (List<?>) options.get("methods")).containsExactly("支付宝");
     }
@@ -145,15 +145,17 @@ class BillRepositoryQueryTest extends PgTestBase {
             .get("by_category");
         // 当前窗口(02-24..03-02)含 t4(京东 199,未分类)与餐饮 124.30
         assertThat(byCategory.get(0)).containsEntry("name", "未分类")
-            .containsEntry("current", 199.0);
+            ;
+        assertThat(((Number) byCategory.get(0).get("current")).doubleValue()).isEqualTo(199.0);
         assertThat(byCategory.get(1)).containsEntry("name", "餐饮")
-            .containsEntry("current", 124.30);
+            ;
+        assertThat(((Number) byCategory.get(1).get("current")).doubleValue()).isEqualTo(124.30);
     }
 
     @Test
     void query_result_amounts_are_plain_numbers() {
         var result = bills.query(BillFilters.EMPTY, 1, 10, "alice");
         List<Map<String, Object>> items = (List<Map<String, Object>>) (List<?>) result.get("items");
-        assertThat(items.get(0).get("amount")).isInstanceOf(Double.class);
+        assertThat(items.get(0).get("amount")).isInstanceOf(java.math.BigDecimal.class);
     }
 }

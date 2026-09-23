@@ -143,8 +143,10 @@ public final class BillTools {
         return new BillFilters(strArg(args, "date_from", ""), strArg(args, "date_to", ""),
             strArg(args, "category", ""), strArg(args, "merchant", ""),
             strArg(args, "method", ""), strArg(args, "status", ""),
-            args.get("min_amount") instanceof Number n ? n.doubleValue() : null,
-            args.get("max_amount") instanceof Number n ? n.doubleValue() : null,
+            args.get("min_amount") instanceof Number n
+                ? java.math.BigDecimal.valueOf(n.doubleValue()) : null,
+            args.get("max_amount") instanceof Number n
+                ? java.math.BigDecimal.valueOf(n.doubleValue()) : null,
             strArg(args, "query", ""));
     }
 

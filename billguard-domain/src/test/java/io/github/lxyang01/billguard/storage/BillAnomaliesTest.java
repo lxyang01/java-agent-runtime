@@ -78,7 +78,8 @@ class BillAnomaliesTest extends PgTestBase {
         assertThat(result.get("current_period")).isNull();
         assertThat((List<?>) result.get("items")).isEmpty();
         assertThat((Map<String, Object>) result.get("thresholds"))
-            .containsEntry("spike_ratio", 2.0).containsEntry("spike_min", 100.0);
+            .containsEntry("spike_ratio", new java.math.BigDecimal("2"))
+            .containsEntry("spike_min", new java.math.BigDecimal("100"));
     }
 
     @Test
@@ -91,8 +92,8 @@ class BillAnomaliesTest extends PgTestBase {
         assertThat(food.get("name")).isEqualTo("餐饮");
         assertThat(food.get("detail")).isEqualTo("本期 ¥300,上期 ¥60,达到 2 倍");
         Map<String, Object> evidence = (Map<String, Object>) food.get("evidence");
-        assertThat(evidence).containsEntry("current_amount", 300.0)
-            .containsEntry("previous_amount", 60.0);
+        assertThat(evidence).containsEntry("current_amount", new java.math.BigDecimal("3E+2"))
+            .containsEntry("previous_amount", new java.math.BigDecimal("6E+1"));
     }
 
     @Test
@@ -110,7 +111,7 @@ class BillAnomaliesTest extends PgTestBase {
         Map<String, Object> evidence = (Map<String, Object>) video.get("evidence");
         assertThat((List<String>) (List<?>) evidence.get("tx_ids"))
             .containsExactly("d1", "d2");
-        assertThat(evidence.get("min_gap_days")).isEqualTo(0.0833);
+        assertThat(((Number) evidence.get("min_gap_days")).doubleValue()).isEqualTo(0.0833);
     }
 
     @Test
@@ -121,8 +122,8 @@ class BillAnomaliesTest extends PgTestBase {
         assertThat(item.get("name")).isEqualTo("音乐会员");
         assertThat(item.get("detail")).isEqualTo("预期 ¥25 实扣 ¥39,上涨");
         Map<String, Object> evidence = (Map<String, Object>) item.get("evidence");
-        assertThat(evidence).containsEntry("expected_amount", 25.0)
-            .containsEntry("actual_amount", 39.0);
+        assertThat(evidence).containsEntry("expected_amount", new java.math.BigDecimal("25"))
+            .containsEntry("actual_amount", new java.math.BigDecimal("39"));
     }
 
     @Test
@@ -131,9 +132,9 @@ class BillAnomaliesTest extends PgTestBase {
         assertThat(outliers).hasSize(1);
         Map<String, Object> item = outliers.get(0);
         assertThat(item.get("name")).isEqualTo("零售大单");
-        assertThat(item.get("detail")).isEqualTo("¥500 为类别均值 5.0 倍");
+        assertThat(item.get("detail")).isEqualTo("¥500 为类别均值 5 倍");
         Map<String, Object> evidence = (Map<String, Object>) item.get("evidence");
-        assertThat(evidence).containsEntry("amount", 500.0).containsEntry("category_mean", 100.0);
+        assertThat(evidence).containsEntry("amount", new java.math.BigDecimal("5E+2")).containsEntry("category_mean", new java.math.BigDecimal("1E+2"));
     }
 
     @Test
