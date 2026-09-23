@@ -37,6 +37,23 @@ public final class BillAgentFactory {
 
     private BillAgentFactory() {}
 
+    /** MCP 模式:工具目录来自注入后的注册表(owner 身份已强制);审批走 PG 仓。 */
+    public static AgentRuntime createMcpAgent(
+        io.github.lxyang01.agent.llm.LlmClient llm, Duration runTimeout,
+        io.github.lxyang01.agent.store.ConversationStore conversations,
+        io.github.lxyang01.agent.store.TraceWriter traceWriter,
+        io.github.lxyang01.agent.store.ApprovalStore approvals,
+        io.github.lxyang01.agent.tool.ToolRegistry registry) {
+        AgentSpec spec = AgentSpec.builder(AGENT_NAME, INSTRUCTIONS, registry.names())
+            .maxSteps(8)
+            .runTimeout(runTimeout)
+            .build();
+        return AgentRuntime.builder(spec, llm, registry, conversations, traceWriter)
+            .skills(new SkillRuntime(new io.github.lxyang01.billguard.skills.ClasspathSkillSource()))
+            .approvals(approvals)
+            .build();
+    }
+
     /** 本地模式:五工具按 owner 受限装配(查询自动过滤本人数据)。 */
     public static AgentRuntime createLocalAgent(LlmClient llm, Duration runTimeout,
                                                  ConversationStore conversations,

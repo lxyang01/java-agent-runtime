@@ -57,6 +57,7 @@ mvn -pl billguard-web test -Dtest=PgStoresTest    # 单个测试类
 | `metrics` | `AppMetrics`(Micrometer 扁平命名)/`MetricsFilter` |
 | `skills` | `ClasspathSkillSource`(fat jar 内技能资产) |
 | `cli` | `UsersCli`(管理员播种) |
+| `mcp` | `McpClientManager`(熔断/重连/降级)、`OwnerIdentity`(身份注入) |
 | `config` | Spring 装配(`RuntimeConfig`) |
 
 ## 4. 契约清单(不得改写;修改前先读 spec §2「契约保形」)
@@ -107,4 +108,5 @@ echo 'Your-Password-1' | java -jar billguard-web/target/billguard-web-1.0.0-SNAP
 ## 8. 里程碑档案
 
 - **M1(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m1-runtime-core.md`;runtime 149 测试;端到端:高写工具 → 审批暂停 → 批准 → resume → executed → completed,真实 PG/Redis。
+- **M3(2026-09-23 完成)**:计划 `docs/superpowers/plans/2026-09-23-m3-mcp.md`;新增 `billguard-domain`(账单/工单/存储/认证/协调,web 与 mcp 共用)与 `billguard-mcp`(bill :8010 / work-item :8020,profile 选择,`--spring.profiles.active=bill|work-item`)模块;MCP Java SDK 0.18.4(WebMvcStatelessServerTransport + HttpClientStreamableHttpTransport);熔断状态机(1s/2s/4s 重连×3 → OPEN 60s → 半开单探);owner 身份注入(schema 隐藏 + 参数白名单 + 强制覆盖);commit_issue 双闸审批 + 卡片工单补全。测试:domain 74 + mcp 6 + web 40(+ runtime 149)。
 - **M2(2026-09-22 完成)**:计划 `docs/superpowers/plans/2026-09-22-m2-web.md`;web 100 测试(安全 11/账单域 33/编排 6/LLM 适配 2/API 集成 14/指标 2 等);安全三件套 + 30 端点 + 前端 + Micrometer。chat 经 HTTP 的真实模型链路需 API Key(容器外 `--users add` 播种后 `docker compose up` 体验),集成测试以 Facade+ScriptedLlm 覆盖同等编排语义。

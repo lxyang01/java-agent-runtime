@@ -7,6 +7,7 @@ import io.github.lxyang01.billguard.storage.PgTraceWriter;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.sync.RedisCommands;
 import javax.sql.DataSource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -101,6 +102,26 @@ public class RuntimeConfig {
         return new io.github.lxyang01.billguard.storage.PgTraceReader(jdbc);
     }
 
+    /** MCP 模式:两个 MCP URL 齐备时启用(对齐 Python:缺一启动退出)。 */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty("billguard.mcp.enabled")
+    public io.github.lxyang01.billguard.mcp.McpClientManager mcpClientManager(
+        @Value("${BILLGUARD_BILL_MCP_URL}") String billUrl,
+        @Value("${BILLGUARD_WORK_ITEM_MCP_URL}") String workItemUrl) {
+        var manager = new io.github.lxyang01.billguard.mcp.McpClientManager(
+            java.time.Duration.ofSeconds(20), null);
+        manager.connectStreamableHttp("bill", billUrl);
+        manager.connectStreamableHttp("work-items", workItemUrl);
+        return manager;
+    }
+
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty("billguard.mcp.enabled")
+    public io.github.lxyang01.billguard.storage.PgWorkItemStore pgWorkItemStore(
+        JdbcTemplate jdbc, TransactionTemplate tx) {
+        return new io.github.lxyang01.billguard.storage.PgWorkItemStore(jdbc, tx);
+    }
+
     @Bean
     public io.github.lxyang01.billguard.core.BillGuardFacade billGuardFacade(
         JdbcTemplate jdbc,
@@ -115,18 +136,49 @@ public class RuntimeConfig {
         org.springframework.ai.chat.model.ChatModel chatModel,
         @Value("${BILLGUARD_LLM_MODEL:openai/gpt-4.1-mini}") String model,
         @Value("${billguard.run-timeout-seconds:120}") long runTimeoutSeconds,
-        io.github.lxyang01.billguard.metrics.AppMetrics metrics) {
+        io.github.lxyang01.billguard.metrics.AppMetrics metrics,
+        ObjectProvider<io.github.lxyang01.billguard.mcp.McpClientManager> mcpManagerProvider,
+        ObjectProvider<io.github.lxyang01.billguard.storage.PgWorkItemStore> workItemsProvider) {
         var llm = new io.github.lxyang01.billguard.llm.SpringAiLlmClient(chatModel, model, null);
         io.github.lxyang01.billguard.core.BillGuardFacade facade = null;
         facade = new io.github.lxyang01.billguard.core.BillGuardFacade(bills, anomalies,
             conversations, approvals, evidence, traceReader, commands, llmSlots,
-            (user, sessionId) -> io.github.lxyang01.billguard.bills.BillAgentFactory
-                .createLocalAgent(llm, java.time.Duration.ofSeconds(runTimeoutSeconds),
-                    conversations, traceRef(jdbc), bills, anomalies, user.username()),
+            (user, sessionId) -> mcpManagerProvider.getIfAvailable() != null
+                ? mcpAgent(mcpManagerProvider.getObject(), llm,
+                    java.time.Duration.ofSeconds(runTimeoutSeconds), conversations,
+                    traceRef(jdbc), approvals, user.username())
+                : io.github.lxyang01.billguard.bills.BillAgentFactory
+                    .createLocalAgent(llm, java.time.Duration.ofSeconds(runTimeoutSeconds),
+                        conversations, traceRef(jdbc), bills, anomalies, user.username()),
             java.time.Duration.ofSeconds(runTimeoutSeconds),
             sessionId -> jdbc.update("DELETE FROM traces WHERE session_id = ?", sessionId));
         facade.setMetrics(metrics);
+        var mcpManager = mcpManagerProvider.getIfAvailable();
+        if (mcpManager != null) {
+            var workItems = workItemsProvider.getIfAvailable();
+            // MCP 模式:远端工具目录 + owner 身份注入(模型不可见、不可伪造)
+            facade.setMcpMode(workItems,
+                () -> mcpManager.snapshots().stream()
+                    .map(io.github.lxyang01.billguard.mcp.McpServerSnapshot::view).toList());
+        }
         return facade;
+    }
+
+    /** MCP 模式 Agent:远端工具目录 + owner 注入(对齐 create_mcp_bill_agent)。 */
+    private static io.github.lxyang01.agent.engine.AgentRuntime mcpAgent(
+        io.github.lxyang01.billguard.mcp.McpClientManager manager,
+        io.github.lxyang01.agent.llm.LlmClient llm, java.time.Duration runTimeout,
+        io.github.lxyang01.billguard.storage.PgConversationStore conversations,
+        io.github.lxyang01.agent.store.TraceWriter traceWriter,
+        io.github.lxyang01.agent.store.ApprovalStore approvals, String username) {
+        io.github.lxyang01.agent.tool.ToolRegistry raw = new io.github.lxyang01.agent.tool.ToolRegistry();
+        for (var snapshot : manager.snapshots()) {
+            manager.registerTools(raw, snapshot.name());
+        }
+        var injected = io.github.lxyang01.billguard.mcp.OwnerIdentity
+            .injectOwnerIdentity(raw, username);
+        return io.github.lxyang01.billguard.bills.BillAgentFactory.createMcpAgent(
+            llm, runTimeout, conversations, traceWriter, approvals, injected);
     }
 
     private static io.github.lxyang01.agent.store.TraceWriter traceRef(JdbcTemplate jdbc) {

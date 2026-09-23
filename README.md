@@ -30,7 +30,7 @@ billguard-web   Spring Boot 3 装配
 
 - [x] **M1 Runtime 内核** —— agent-runtime 全量(149 测试)+ PG/Redis 仓储 + 端到端审批恢复(Testcontainers)
 - [x] **M2 Web 全量** —— 安全三件套/30 端点/账单域/编排/Micrometer 指标
-- [ ] M3 MCP 双端 —— bill/work-item MCP server + 客户端熔断
+- [x] **M3 MCP 双端** —— 双 MCP server + 熔断客户端 + owner 注入 + 双闸审批
 - [ ] M4 证明体系 —— 25 条对抗探针全量平移并通过
 - [ ] M5 生产化 —— compose 集群 + CI + 运维文档
 

@@ -51,6 +51,8 @@ public final class BillGuardFacade {
     private final Duration runTimeout;
     private final java.util.function.Consumer<String> traceDeleter;
     private io.github.lxyang01.billguard.metrics.AppMetrics metrics;   // 可空:测试直构不埋点
+    private io.github.lxyang01.billguard.storage.PgWorkItemStore workItems;        // MCP 模式双闸
+    private java.util.function.Supplier<List<Map<String, Object>>> mcpServersView; // 快照列服务
 
     public BillGuardFacade(BillRepository bills, BillAnomalies anomalies,
                            PgConversationStore conversations, PgApprovalStore approvals,
@@ -73,6 +75,17 @@ public final class BillGuardFacade {
 
     public void setMetrics(io.github.lxyang01.billguard.metrics.AppMetrics metrics) {
         this.metrics = metrics;
+    }
+
+    /** MCP 模式装配:工单存储(commit_issue 双闸)+ mcp_servers 视图提供者。 */
+    public void setMcpMode(io.github.lxyang01.billguard.storage.PgWorkItemStore workItems,
+                           java.util.function.Supplier<List<Map<String, Object>>> mcpServersView) {
+        this.workItems = workItems;
+        this.mcpServersView = mcpServersView;
+    }
+
+    private List<Map<String, Object>> mcpServers() {
+        return mcpServersView == null ? List.of() : mcpServersView.get();
     }
 
     private void inc(String name) {
@@ -176,9 +189,10 @@ public final class BillGuardFacade {
         result.put("sessions", listSessions(user, sessionId));
         result.put("overview", bills.overview(BillFilters.EMPTY, user.username()));
         result.put("evidence", evidence);
-        result.put("mcp_servers", List.of());
+        result.put("mcp_servers", mcpServers());
         result.put("status", response.status());
-        result.put("approval", response.approval());
+        result.put("approval", response.approval() == null ? null
+            : enrichApproval(new LinkedHashMap<>(response.approval())));
         result.put("approvals", approvals(user, sessionId));
         result.put("runs", traceReader.listRuns(sessionId, 50));
         return result;
@@ -217,7 +231,16 @@ public final class BillGuardFacade {
             if (!sessionId.equals(current.sessionId())) {
                 throw new PolicyException("该审批不属于当前会话");
             }
-            // 工单域第二道闸在 M3 接入(commit_issue 联动 work_item_store.decide)
+            // 双闸:commit 类审批先过工单域决定(伪造 checkpoint 也过不了第二道闸)
+            if (workItems != null && current.toolName().endsWith("commit_issue")) {
+                Object remoteId = current.arguments().get("approval_id");
+                String remoteApprovalId = remoteId == null
+                    ? "" : String.valueOf(remoteId).strip();
+                if (remoteApprovalId.isEmpty()) {
+                    throw new PolicyException("commit_issue 审批缺少远程 approval_id");
+                }
+                workItems.decide(remoteApprovalId, approved, user.username());
+            }
             approvals.decide(approvalId, approved, user.username(), note);
             AgentRuntime agent = agentProvider.apply(user, sessionId);
             AgentResponse response = approved
@@ -235,7 +258,7 @@ public final class BillGuardFacade {
             result.put("sessions", listSessions(user, sessionId));
             result.put("overview", bills.overview(BillFilters.EMPTY, user.username()));
             result.put("evidence", evidence);
-            result.put("mcp_servers", List.of());
+            result.put("mcp_servers", mcpServers());
             result.put("runs", traceReader.listRuns(sessionId, 50));
             return result;
         } finally {
@@ -283,7 +306,7 @@ public final class BillGuardFacade {
         result.put("imports", bills.imports(20, owner));
         result.put("subscriptions", bills.subscriptions(owner));
         result.put("reports", bills.reports(50, owner));
-        result.put("mcp_servers", List.of());
+        result.put("mcp_servers", mcpServers());
         result.put("approvals", approvals(user, sessionId));
         result.put("runs", traceReader.listRuns(sessionId, 50));
         result.put("evaluations", List.of());
@@ -294,9 +317,36 @@ public final class BillGuardFacade {
         requireSessionAccess(user, sessionId);
         List<Map<String, Object>> result = new ArrayList<>();
         for (var record : approvals.list(sessionId, null, 100)) {
-            result.add(record.asMap());
+            result.add(enrichApproval(record.asMap()));
         }
         return result;
+    }
+
+    /** commit 类审批补全人可读的工单内容(action_title/description/priority)。 */
+    private Map<String, Object> enrichApproval(Map<String, Object> data) {
+        if (workItems == null || !String.valueOf(data.get("tool_name")).endsWith("commit_issue")) {
+            return data;
+        }
+        Object remoteId = ((Map<?, ?>) data.get("arguments")).get("approval_id");
+        if (remoteId == null || String.valueOf(remoteId).isBlank()) {
+            return data;
+        }
+        try {
+            Map<?, ?> payload = (Map<?, ?>) workItems.approval(String.valueOf(remoteId))
+                .get("payload");
+            data.putIfAbsent("action_title", payload.get("title"));
+            data.putIfAbsent("action_description", payload.get("description"));
+            String priority = String.valueOf(payload.get("priority"));
+            data.putIfAbsent("action_priority", switch (priority) {
+                case "high" -> "高";
+                case "medium" -> "中";
+                case "low" -> "低";
+                default -> priority;
+            });
+        } catch (RuntimeException ignored) {
+            // 补全是展示增强:工单缺失时返回原始卡片
+        }
+        return data;
     }
 
     /** 可恢复会话列表(按 updated_at 倒序,最多 20;活跃会话置顶)。 */
