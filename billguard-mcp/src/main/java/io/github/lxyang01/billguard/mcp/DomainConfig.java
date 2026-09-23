@@ -10,9 +10,25 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration
 public class DomainConfig {
 
+    @org.springframework.context.annotation.Profile("work-item")
     @Bean
     public PgWorkItemStore pgWorkItemStore(JdbcTemplate jdbc, TransactionTemplate tx) {
         return new PgWorkItemStore(jdbc, tx);
+    }
+
+    @org.springframework.context.annotation.Profile("bill")
+    @Bean
+    public io.github.lxyang01.billguard.storage.BillRepository billRepository(
+        JdbcTemplate jdbc) {
+        return new io.github.lxyang01.billguard.storage.BillRepository(jdbc);
+    }
+
+    @org.springframework.context.annotation.Profile("bill")
+    @Bean
+    public io.github.lxyang01.billguard.storage.BillAnomalies billAnomalies(
+        JdbcTemplate jdbc,
+        io.github.lxyang01.billguard.storage.BillRepository bills) {
+        return new io.github.lxyang01.billguard.storage.BillAnomalies(jdbc, bills);
     }
 
     @Bean

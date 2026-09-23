@@ -37,6 +37,7 @@ import org.springframework.web.servlet.function.ServerResponse;
  * work_item_server.py;approve 刻意不作为工具暴露(通道外人工决策)。
  */
 @Configuration
+@org.springframework.context.annotation.Profile("work-item")
 public class WorkItemServerConfig {
 
     public static final String INSTRUCTIONS =
