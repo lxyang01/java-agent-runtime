@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: billguard-mcp
+  datasource:
+    url: ${BILLGUARD_PG_URL:jdbc:postgresql://localhost:5432/billguard}
+    username: ${BILLGUARD_PG_USER:billguard}
+    password: ${BILLGUARD_PG_PASSWORD:billguard}
+  flyway:
+    enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: bill
+server:
+  port: 8010
+
+---
+spring:
+  config:
+    activate:
+      on-profile: work-item
+server:
+  port: 8020
