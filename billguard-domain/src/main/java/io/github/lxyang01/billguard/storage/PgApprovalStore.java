@@ -131,6 +131,37 @@ public final class PgApprovalStore implements ApprovalStore {
         return get(approvalId);
     }
 
+    /**
+     * 进入执行中(approved → executing,条件 UPDATE):标记工具即将执行。
+     * 审计语义:审批决定恰好一次;executing 状态把「执行后崩溃重放」的窗口从
+     * [执行前, markExecution 后] 收窄为 [markExecuting 后],恢复侧遇到 executing
+     * 拒绝自动重放(工具副作用幂等由下游保证,如工单域的 idempotent_replay)。
+     */
+    @Override
+    public ApprovalRecord markExecuting(String approvalId) {
+        int updated = jdbc.update(
+            "UPDATE approvals SET status = 'executing' WHERE id = ? AND status = 'approved'",
+            approvalId);
+        if (updated == 0) {
+            List<String> status = jdbc.queryForList(
+                "SELECT status FROM approvals WHERE id = ?", String.class, approvalId);
+            throw new PolicyException("approval cannot enter executing from "
+                + (status.isEmpty() ? "missing" : status.get(0)) + ": " + approvalId);
+        }
+        return get(approvalId);
+    }
+
+    /** 运维/超时回收:executing 滚回 approved(仅当确认无副作用或下游幂等)。 */
+    public ApprovalRecord reclaimExecuting(String approvalId) {
+        int updated = jdbc.update(
+            "UPDATE approvals SET status = 'approved' WHERE id = ? AND status = 'executing'",
+            approvalId);
+        if (updated == 0) {
+            throw new PolicyException("approval is not executing: " + approvalId);
+        }
+        return get(approvalId);
+    }
+
     @Override
     public ApprovalRecord markExecution(String approvalId, boolean succeeded, String error) {
         List<String> status = jdbc.queryForList(
@@ -138,9 +169,9 @@ public final class PgApprovalStore implements ApprovalStore {
         if (status.isEmpty()) {
             throw new PolicyException("approval not found: " + approvalId);
         }
-        if (!"approved".equals(status.get(0))) {
+        if (!List.of("approved", "executing").contains(status.get(0))) {
             throw new PolicyException(
-                "only approved requests can be executed: " + status.get(0));
+                "only approved/executing requests can be executed: " + status.get(0));
         }
         Map<String, Object> executionResult = new LinkedHashMap<>();
         executionResult.put("succeeded", succeeded);

@@ -82,11 +82,27 @@ public final class InMemoryApprovalStore implements ApprovalStore {
     }
 
     @Override
-    public ApprovalRecord markExecution(String approvalId, boolean succeeded, String error) {
+    public ApprovalRecord markExecuting(String approvalId) {
         ApprovalRecord record = get(approvalId);
         if (!"approved".equals(record.status())) {
             throw new PolicyException(
-                "only approved requests can be executed: " + record.status());
+                "approval cannot enter executing from " + record.status() + ": " + approvalId);
+        }
+        ApprovalRecord executing = new ApprovalRecord(record.id(), record.sessionId(),
+            record.traceId(), record.step(), record.toolName(), record.arguments(),
+            record.riskLevel(), record.reason(), "executing", record.checkpoint(),
+            record.requestedAt(), record.decidedAt(), record.decidedBy(),
+            record.decisionNote(), record.executedAt(), record.executionError());
+        approvals.put(approvalId, executing);
+        return executing;
+    }
+
+    @Override
+    public ApprovalRecord markExecution(String approvalId, boolean succeeded, String error) {
+        ApprovalRecord record = get(approvalId);
+        if (!List.of("approved", "executing").contains(record.status())) {
+            throw new PolicyException(
+                "only approved/executing requests can be executed: " + record.status());
         }
         ApprovalRecord updated = new ApprovalRecord(record.id(), record.sessionId(),
             record.traceId(), record.step(), record.toolName(), record.arguments(),

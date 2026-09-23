@@ -80,6 +80,22 @@ public final class AgentRuntime {
             throw new IllegalArgumentException(
                 "AgentSpec references unregistered tools: " + String.join(", ", missing));
         }
+        if (approvals == null) {
+            TreeSet<String> gated = new TreeSet<>();
+            for (String name : spec.toolNames()) {
+                var tool = tools.get(name);
+                if (tool.policy().requiresApproval()
+                    || tool.policy().riskLevel() == RiskLevel.HIGH_WRITE
+                    || tool.policy().riskLevel() == RiskLevel.FORBIDDEN) {
+                    gated.add(name);
+                }
+            }
+            if (!gated.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "AgentSpec contains policy-gated tools but no approval store is "
+                    + "configured: " + String.join(", ", gated));
+            }
+        }
     }
 
     public static Builder builder(AgentSpec spec, LlmClient llm, ToolRegistry tools,
@@ -151,8 +167,10 @@ public final class AgentRuntime {
         }
         conversation.addMessage(ChatMessage.user(input));
         String traceId = uuidHex();
+        Redaction inputRedaction = Guardrails.redactPii(input);
         emit(RunEvents.RUN_START, traceId, sessionId, 0,
-            Map.of("input", input, "agent", spec.name()));
+            mapOf("input", Strings.truncate(inputRedaction.text(), 2_000),
+                "input_redactions", inputRedaction.counts(), "agent", spec.name()));
 
         List<SkillActivation> activeSkills;
         List<String> allowedTools;
@@ -178,6 +196,12 @@ public final class AgentRuntime {
             throw new PolicyException("this Agent has no Policy Gateway");
         }
         ApprovalRecord approval = approvals.get(approvalId);
+        if ("executing".equals(approval.status())) {
+            // 崩溃残留的执行中标记:自动重放可能重复副作用,交人工/超时回收
+            throw new PolicyException(
+                "approval is mid-execution (crash residue); reclaim or verify downstream "
+                + "idempotency before retrying: " + approvalId);
+        }
         if (!"approved".equals(approval.status())) {
             throw new PolicyException(
                 "approval must be approved before resume: " + approval.status());
@@ -226,6 +250,7 @@ public final class AgentRuntime {
         RunState state = RunState.fromCheckpoint(checkpoint);
         emit(RunEvents.RUN_RESUME, approval.traceId(), approval.sessionId(), approval.step(),
             mapOf("approval_id", approval.id(), "decided_by", approval.decidedBy()));
+        approvals.markExecuting(approvalId);
         ToolExecution execution = executeTool(conversation, working, approval.traceId(),
             approval.sessionId(), approval.step(), approval.toolName(), approval.arguments(),
             String.valueOf(checkpoint.get("call_id")), allowedTools, state);
@@ -394,19 +419,22 @@ public final class AgentRuntime {
                         + "。该工具尚未执行。请修正参数后重新调用。"));
                 continue;
             }
-            if (approvals != null) {
-                PolicyVerdict verdict;
-                try {
-                    verdict = PolicyGateway.enforce(tools.get(call.tool()).policy(), call.tool());
-                } catch (PolicyException | ToolException e) {
-                    appendToolError(conversation, working, traceId, sessionId, step,
-                        call.tool(), call.arguments(), callId, messageOf(e));
-                    continue;
+            // 策略门禁永远执行(fail-closed):无审批仓时高写直接拒绝,而非静默放行
+            PolicyVerdict verdict;
+            try {
+                verdict = PolicyGateway.enforce(tools.get(call.tool()).policy(), call.tool());
+            } catch (PolicyException | ToolException e) {
+                appendToolError(conversation, working, traceId, sessionId, step,
+                    call.tool(), call.arguments(), callId, messageOf(e));
+                continue;
+            }
+            if (verdict instanceof ApprovalRequired) {
+                if (approvals == null) {
+                    throw new PolicyException("high-write tool requires a configured approval "
+                        + "store: " + call.tool());
                 }
-                if (verdict instanceof ApprovalRequired) {
-                    return pauseForApproval(conversation, traceId, sessionId, userInput, step,
-                        call.tool(), call.arguments(), callId, activeSkills, allowedTools, state);
-                }
+                return pauseForApproval(conversation, traceId, sessionId, userInput, step,
+                    call.tool(), call.arguments(), callId, activeSkills, allowedTools, state);
             }
             ToolExecution execution = executeTool(conversation, working, traceId, sessionId,
                 step, call.tool(), call.arguments(), callId, allowedTools, state);
@@ -482,9 +510,12 @@ public final class AgentRuntime {
             if (result instanceof Map<?, ?> resultMap && resultMap.get("storage_path") != null) {
                 state.artifactPaths.add(String.valueOf(resultMap.get("storage_path")));
             }
+            // 高写工具的执行证明是审计记录:落库失败按失败记账(fail-closed)
             emit(RunEvents.TOOL_END, traceId, sessionId, step, mapOf(
                 "tool", toolName, "result", result,
-                "latency_ms", round2((System.nanoTime() - toolStarted) / 1e6)));
+                "latency_ms", round2((System.nanoTime() - toolStarted) / 1e6),
+                "risk_level", tools.get(toolName).policy().riskLevel().wire()),
+                tools.get(toolName).policy().riskLevel() == RiskLevel.HIGH_WRITE);
             if (result instanceof Map<?, ?> degradedMap
                 && Boolean.TRUE.equals(degradedMap.get("degraded"))
                 && degradedMap.containsKey("error")
@@ -719,14 +750,26 @@ public final class AgentRuntime {
             activeSkills.stream().map(SkillActivation::name).toList(), status, null);
     }
 
+    /**
+     * 审计关键事件:落库失败必须让操作失败(fail-closed)。对一个「可审计 Agent」,
+     * 审批暂停/拒绝与高写工具的执行证明丢失是不可接受的 —— 宁可不执行。
+     */
+    private static final java.util.Set<String> AUDIT_EVENTS = java.util.Set.of(
+        RunEvents.APPROVAL_PENDING, RunEvents.APPROVAL_REJECTED);
+
     private void emit(String eventType, String traceId, String sessionId, int step,
                       Map<String, Object> data) {
+        emit(eventType, traceId, sessionId, step, data, AUDIT_EVENTS.contains(eventType));
+    }
+
+    private void emit(String eventType, String traceId, String sessionId, int step,
+                      Map<String, Object> data, boolean auditCritical) {
         RunEvent event = RunEvent.of(eventType, traceId, sessionId, step, data);
         for (Consumer<RunEvent> hook : hooks) {
             try {
                 hook.accept(event);
             } catch (Exception e) {
-                // Observability must never break the Agent loop.
+                // 遥测 hook 失败不破坏主循环(hook 是可降级观测)。
             }
         }
         try {
@@ -739,7 +782,11 @@ public final class AgentRuntime {
             record.putAll(event.data());
             traceWriter.appendEvent(sessionId, traceId, spec.name(), record);
         } catch (Exception e) {
-            // Observability must never break the Agent loop.
+            if (auditCritical) {
+                throw new IllegalStateException(
+                    "audit-trail write failed for " + eventType + "; failing closed", e);
+            }
+            // 遥测事件(模型/技能/压缩等)落库失败降级:不破坏主循环。
         }
     }
 

@@ -20,6 +20,15 @@ public interface ApprovalStore {
 
     ApprovalRecord decide(String approvalId, boolean approved, String decidedBy, String note);
 
+    /**
+     * 执行前迁移(approved → executing):收窄「执行后崩溃」重放窗口。缺省直通
+     * (记录型后端无迁移);持久后端覆写为条件 UPDATE。恢复侧遇到 executing
+     * 拒绝自动重放,由人工/超时回收处理(副作用幂等由下游工具保证)。
+     */
+    default ApprovalRecord markExecuting(String approvalId) {
+        return get(approvalId);
+    }
+
     ApprovalRecord markExecution(String approvalId, boolean succeeded, String error);
 
     int deleteForConversation(String sessionId);
