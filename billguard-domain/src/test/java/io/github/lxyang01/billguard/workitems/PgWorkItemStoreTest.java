@@ -107,7 +107,7 @@ class PgWorkItemStoreTest extends PgTestBase {
         String id = (String) store.prepareIssue("t1", "d1", "medium", null).get("approval_id");
         assertThat(store.pendingApprovals()).hasSize(1);
         store.decide(id, true, "admin");
-        store.commitIssue(id);
+        String issueId = (String) ((Map<?, ?>) store.commitIssue(id).get("created")).get("id");
         store.prepareIssue("t2", "d2", "low", null);
 
         var listed = store.listIssues(null, 50);
@@ -117,7 +117,7 @@ class PgWorkItemStoreTest extends PgTestBase {
             .singleElement().satisfies(item ->
                 assertThat(((Map<?, ?>) item).get("title")).isEqualTo("t1"));
 
-        Map<?, ?> issue = store.getIssue("ISS-0001");
+        Map<?, ?> issue = store.getIssue(issueId);
         assertThat(issue.get("title")).isEqualTo("t1");
         assertThatThrownBy(() -> store.getIssue("ISS-9999"))
             .hasMessage("issue not found: ISS-9999");
