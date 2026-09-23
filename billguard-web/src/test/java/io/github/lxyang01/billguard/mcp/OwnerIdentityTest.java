@@ -58,7 +58,7 @@ class OwnerIdentityTest {
     }
 
     @Test
-    void forged_owner_overwritten_and_unknown_args_dropped() {
+    void forged_owner_overwritten_and_unknown_args_dropped() throws Exception {
         Map<String, Object> received = new LinkedHashMap<>();
         var capture = new java.util.function.BiFunction<String, Map<String, Object>, Object>() {
             @Override
@@ -71,9 +71,11 @@ class OwnerIdentityTest {
         ToolRegistry injected = OwnerIdentity.injectOwnerIdentity(
             registryWithBillAndWorkItem(capture), "alice");
 
-        // 模型伪造 owner/operator + 未知参数 _server
-        injected.execute("bill.query", new java.util.LinkedHashMap<>(Map.of(
-            "merchant", "美团", "owner", "bob", "operator", "mallory", "_server", "evil")), null);
+        // 模型伪造 owner/operator + 未知参数 _server。
+        // 直调 handler(注册表 schema 校验层已把伪造键挡在外面 —— additionalProperties=false;
+        // wrapper 是纵深防御第二层,负责 MCP 路径的身份强制覆盖)
+        injected.get("bill.query").handler().execute(new java.util.LinkedHashMap<>(Map.of(
+            "merchant", "美团", "owner", "bob", "operator", "mallory", "_server", "evil")));
 
         assertThat(received.get("_tool")).isEqualTo("bill.query");
         assertThat(received.get("owner")).isEqualTo("alice");       // 强制覆盖
