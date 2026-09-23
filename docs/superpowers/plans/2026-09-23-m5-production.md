@@ -22,27 +22,27 @@
 ### Task 1: Dockerfile(多阶段构建)
 
 **Files:** `docker/Dockerfile`(三目标共用:构建层 maven:3.9-temurin-21 → 运行层 eclipse-temurin:21-jre + curl)
-- [ ] 构建层:`mvn -pl agent-runtime,billguard-domain,billguard-mcp,billguard-web -am package -DskipTests`(eval 不进镜像)
-- [ ] 运行层:拷 agent-runtime/domain/mcp/web 四 jar + 各自 exec;`ENTRYPOINT ["java","-jar"]`,command 由 compose 指定
-- [ ] 本地 `docker build` 成功 → Commit `build(docker): 多阶段镜像(temurin-21 JRE)`
+- [x] 构建层:`mvn -pl agent-runtime,billguard-domain,billguard-mcp,billguard-web -am package -DskipTests`(eval 不进镜像)
+- [x] 运行层:拷 agent-runtime/domain/mcp/web 四 jar + 各自 exec;`ENTRYPOINT ["java","-jar"]`,command 由 compose 指定
+- [x] 本地 `docker build` 成功 → Commit `build(docker): 多阶段镜像(temurin-21 JRE)`
 
 ### Task 2: docker-compose.yml + nginx.conf
 
 **Files:** `docker-compose.yml`、`docker/nginx.conf`(从 Python 逐项移植)
-- [ ] 7 服务 + 2 卷;web_env 锚点;`depends_on` service_healthy;restart: unless-stopped
-- [ ] `docker compose config` 校验通过 → Commit `feat(deploy): compose 集群(拓扑逐项对齐)`
+- [x] 7 服务 + 2 卷;web_env 锚点;`depends_on` service_healthy;restart: unless-stopped
+- [x] `docker compose config` 校验通过 → Commit `feat(deploy): compose 集群(拓扑逐项对齐)`
 
 ### Task 3: GitHub Actions CI
 
 **Files:** `.github/workflows/ci.yml`
-- [ ] ubuntu-latest + temurin 21 + docker(Testcontainers 自带);缓存 m2;`mvn verify`;README 徽章
-- [ ] Commit `ci: GitHub Actions(mvn verify + Testcontainers)`
+- [x] ubuntu-latest + temurin 21 + docker(Testcontainers 自带);缓存 m2;`mvn verify`;README 徽章
+- [x] Commit `ci: GitHub Actions(mvn verify + Testcontainers)`
 
 ### Task 4: 本地集群冒烟 + 文档收尾
 
-- [ ] `docker compose up --build -d` → `curl http://localhost:8080/api/health` = `{"ok":true}`;播种 admin(容器内 CLI);`docker compose kill web-1` 后 nginx 故障转移仍 200;`down` 清理
-- [ ] README(求职叙事:双语等价/防御率 1.0/技术栈表)+ development.md(M5 档案 + 运维速查:启停/备份/扩容)
-- [ ] Commit `docs+chore: M5 完成 —— 集群冒烟与求职叙事`
+- [x] `docker compose up --build -d` → `curl http://localhost:8080/api/health` = `{"ok":true}`;播种 admin(容器内 CLI);`docker compose kill web-1` 后 nginx 故障转移仍 200;`down` 清理
+- [x] README(求职叙事:双语等价/防御率 1.0/技术栈表)+ development.md(M5 档案 + 运维速查:启停/备份/扩容)
+- [x] Commit `docs+chore: M5 完成 —— 集群冒烟与求职叙事`
 
 ## Self-Review
 
