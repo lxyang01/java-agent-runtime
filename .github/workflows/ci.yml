@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Testcontainers 需要 Docker —— GitHub runner 自带;
+      # ryuk 已在 surefire 禁用(国内拉取超时),CI 上同样禁用以保持一致
+      - name: Build & Verify (all modules, incl. Testcontainers integration tests)
+        run: mvn -B verify
+
+      - name: Upload adversarial report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adversarial-report
+          path: billguard-eval/evaluations/
+          if-no-files-found: ignore

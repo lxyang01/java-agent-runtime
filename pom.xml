@@ -99,7 +99,8 @@
             <!-- Windows 下确保测试 JVM 与源码一致按 UTF-8 处理中文断言/文案 -->
             <argLine>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</argLine>
             <environmentVariables>
-              <!-- 国内网络拉 testcontainers/ryuk 常超时;禁用死信容器,容器由 PgTestBase 自行管理 -->
+              <!-- 国内网络拉 testcontainers/ryuk 常超时;禁用死信容器,容器由 PgTestBase 自行管理。
+                   CI(GitHub runner)同样禁用以保持两端行为一致。 -->
               <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
             </environmentVariables>
           </configuration>
